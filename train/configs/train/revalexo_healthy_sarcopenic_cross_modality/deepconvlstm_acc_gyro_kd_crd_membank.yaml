@@ -1,0 +1,194 @@
+# configs/train/revalexo_healthy_sarcopenic_cross_modality/deepconvlstm_acc_gyro_kd_crd_membank.yaml
+# Cross-modality: Train on Healthy (with video+IMU), Test on Sarcopenic (IMU-only)
+# CRD knowledge distillation with memory bank from ResNet50+DCL fusion teacher
+
+# Base dataset configuration
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml"
+  window_size: 2.0
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
+
+  # Override column patterns from base dataset config
+  modalities:
+    raw_imu:
+      column_patterns:
+        # Lower body accelerometer channels
+        - "acc_Pelvis_*"
+        - "acc_*_Upper_Leg_*"
+        - "acc_*_Lower_Leg_*"
+        - "acc_*_Foot_*"
+        # Lower body gyroscope channels
+        - "gyro_Pelvis_*"
+        - "gyro_*_Upper_Leg_*"
+        - "gyro_*_Lower_Leg_*"
+        - "gyro_*_Foot_*"
+
+  # Cross-modality split: Healthy (train) -> Sarcopenic (val/test)
+  splits:
+    train_subjects: ["Subject01", "Subject02", "Subject03", "Subject11", "Subject20", "Subject24", "Subject29"]
+    val_subjects: ["Subject04", "Subject13", "Subject14", "Subject16", "Subject18", "Subject19", "Subject21", "Subject22", "Subject28", "Subject30"]
+    test_subjects: ["Subject04", "Subject13", "Subject14", "Subject16", "Subject18", "Subject19", "Subject21", "Subject22", "Subject28", "Subject30"]
+
+  # Sample multiplier configuration
+  sample_multiplier:
+    train: 10
+    validation: 10
+    test: 10
+
+# Modalities configuration
+modalities:
+  raw_imu:
+    train_transforms:
+      - name: "AddGaussianNoise"
+        params:
+          mean: 0.0
+          std: 0.01
+          probability: 0.5
+    eval_transforms: []
+
+  image:
+    use_frames: false
+    use_end_frame: true
+    train_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "RandomResizedCropImage"
+        params:
+          size: 224
+          scale: [0.8, 1.0]
+          ratio: [0.75, 1.33]
+      - name: "RandomHorizontalFlipImage"
+        params:
+          p: 0.5
+    eval_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "CenterCropImage"
+        params:
+          size: 224
+
+# Models configuration
+models:
+  raw_imu_model:
+    name: "DeepConvLSTM"
+    params:
+      channels: 42  # 7 lower body parts × 3 axes × 2 sensors
+      window_size: 120
+      conv_kernels: 64
+      conv_kernel_size: 11
+      lstm_units: 1024
+      lstm_layers: 1
+      dropout: 0.5
+
+# Distillation configuration
+distillation:
+  enabled: true
+  method: "crd"
+  teacher_config: "configs/train/revalexo_cross_population/resnet50_dcl_fusion_concat_ln.yaml"
+  teacher_checkpoint: "path/to/teacher/checkpoint.pt"
+  # Override the teacher checkpoint
+  alpha: 0.5
+
+  crd:
+    embed_dim: 128
+    temperature: 0.07
+    use_memory_bank: true
+    memory_size: 16384
+
+  include_vanilla_kd: false
+  vanilla_kd_weight: 0.5
+  temperature: 4.0
+
+# Task configuration
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.1
+
+# Training configuration
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+
+  optimizer:
+    name: "Adam"
+    params:
+      lr: 0.0001
+      weight_decay: 1e-6
+
+  lr_scheduler:
+    name: "StepLR"
+    params:
+      step_size: 5
+      gamma: 0.9
+
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: false
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0
+
+# Dataloaders configuration
+dataloaders:
+  train:
+    batch_size: 64
+    shuffle: true
+    num_workers: 16
+    prefetch_factor: 2
+    pin_memory: true
+    use_balanced_sampler: true
+    balancing_method: "inverse"
+  validation:
+    batch_size: 64
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+  test:
+    batch_size: 64
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+
+# Metrics for evaluation
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+# Logging configuration
+logging:
+  tensorboard: true
+  log_dir: "outputs/train/revalexo_healthy_sarcopenic_cross_modality/deepconvlstm_acc_gyro_kd_crd_membank"
+  log_frequency: 50

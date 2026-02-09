@@ -1,0 +1,25 @@
+# configs/datasets/revalexodataset.yaml
+
+# Basic dataset information
+name: "RevalExoDataset"
+root_path: "/path/to/RevalExoDataset" # Root directory of the dataset (CHANGE THIS TO YOUR LOCAL PATH)
+data_pairs_folder: "data_pairs"  # Folder containing data pair JSON files
+label_mapping_file: "label_mapping.json"  # File with label mappings
+
+# Modality configurations
+modalities:
+  raw_imu:
+    sampling_rate: 60  # Hz
+    # Column patterns to select relevant columns from IMU files
+    column_patterns:
+      - "*acc_*"
+      - "*gyro_*"
+
+  video:
+    frame_rate: 30  # fps
+    original_resolution: [640, 480]  # Original video resolution [width, height]
+    target_resolution: [224, 224]  # Target resolution for deep learning models (CAN BE OVERRIDDEN IN TRAINING CONFIGS)
+    clip_duration: 12  # Original clip duration in seconds
+
+# Default window size in seconds for data sampling (CAN BE OVERRIDDEN IN TRAINING CONFIGS)
+default_window_size: 2.0

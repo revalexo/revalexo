@@ -1,0 +1,146 @@
+# configs/loso/revalexo/deepconvlstm_acc_gyro.yaml
+
+# Base dataset configuration
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml" # Base dataset config path
+  window_size: 2.0 # Can be overridden from dataset config
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1] # Prediction horizons in seconds
+
+  # Override column patterns from base dataset config
+  modalities:
+    raw_imu: # Only raw IMU for DeepConvLSTM-acc-gyro
+      column_patterns:
+        # Lower body accelerometer channels
+        - "acc_Pelvis_*"
+        - "acc_*_Upper_Leg_*"
+        - "acc_*_Lower_Leg_*"
+        - "acc_*_Foot_*"
+        # Lower body gyroscope channels
+        - "gyro_Pelvis_*"
+        - "gyro_*_Upper_Leg_*"
+        - "gyro_*_Lower_Leg_*"
+        - "gyro_*_Foot_*"
+
+  # Split configuration - subjects for each set
+  splits:
+    # all_subjects: ["Subject29", "Subject08", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
+    train_subjects: ["Subject29", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
+    val_subjects: ["Subject08"]
+    test_subjects: ["Subject08"]
+
+  # Sample multiplier configuration- If necessary to multiply item sampling rate from the dataset (more samples per clips of 12s)
+  # So rather than taking just one sample per 12s clip per epoch, we sample multiple times per clip 
+  # Essentially similar to using a stride of approximately 1s over the entire dataset, but the sampling is random (check datasets/multimodaldataset.py for details) 
+  sample_multiplier:
+    train: 10
+    validation: 10 # Deprecated, uses stride of 0.25s by default across all configs for consistency
+    test: 10  # Deprecated, uses stride of 0.25s by default across all configs for consistency
+
+# Modalities to use (only IMU for this config)
+modalities:
+  raw_imu:
+    # Transformations and data augmentation for training and evaluation
+    train_transforms:
+      - name: "AddGaussianNoise"
+        params:
+          mean: 0.0
+          std: 0.01
+          probability: 0.5
+    eval_transforms: []
+
+# Models configuration
+models: # Models defined under models directory
+  raw_imu_model:
+    name: "DeepConvLSTM"
+    params:
+      channels: 42  # 7 lower body parts × 3 axes × 2 sensors
+      window_size: 120 # 2 seconds at 60 Hz
+      conv_kernels: 64
+      conv_kernel_size: 11
+      lstm_units: 1024
+      lstm_layers: 1
+      dropout: 0.5
+
+# Task configuration
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.1
+
+# Training configuration
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+  
+  optimizer:
+    name: "Adam"
+    params:
+      lr: 0.0001
+      weight_decay: 1e-6
+  
+  lr_scheduler: # Defaults for DeepConvLSTM from Bock et al.
+    name: "StepLR"
+    params:
+      step_size: 5
+      gamma: 0.9
+  
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+  
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: false # Also saves the most recent checkpoint if set to false
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0
+
+# Dataloaders configuration
+dataloaders:
+  train:
+    batch_size: 128
+    shuffle: true
+    num_workers: 16
+    prefetch_factor: 2
+    pin_memory: true
+    use_balanced_sampler: true # Use balanced sampling to address class imbalance in training set
+    balancing_method: "inverse" 
+  validation:
+    batch_size: 128
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+  test:
+    batch_size: 128
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+
+# Metrics to save during evaluation, defined under metrics folder
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+# Logging configuration
+logging:
+  tensorboard: true
+  log_dir: "outputs/loso/revalexo/deepconvlstm_acc_gyro" # Directory for storing logs and checkpoints
+  log_frequency: 50

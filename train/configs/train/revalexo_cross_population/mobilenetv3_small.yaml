@@ -1,0 +1,139 @@
+# configs/train/revalexo_cross_population/mobilenetv3_small.yaml
+# Cross-population: Train on Healthy, Test on Stroke subjects
+# Unimodal image-only model
+
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml"
+  window_size: 2.0
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
+
+  # Cross-population split: Healthy (train) -> Stroke (val/test)
+  splits:
+    train_subjects: ["Subject01", "Subject02", "Subject03", "Subject11", "Subject20", "Subject24", "Subject29"]
+    val_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject17", "Subject26"]
+    test_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject17", "Subject26"]
+
+  sample_multiplier:
+    train: 10
+    validation: 10
+    test: 10
+
+modalities:
+  image:
+    use_frames: false
+    use_end_frame: true
+
+    train_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "RandomResizedCropImage"
+        params:
+          size: 224
+          scale: [0.8, 1.0]
+          ratio: [0.75, 1.33]
+      - name: "RandomHorizontalFlipImage"
+        params:
+          p: 0.5
+
+    eval_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "CenterCropImage"
+        params:
+          size: 224
+
+models:
+  image_model:
+    name: "MobileNetV3Small_Image"
+    params:
+      pretrained: true
+      freeze_backbone: false
+      freeze_early_layers: false
+
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.1
+
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+
+  optimizer:
+    name: "Adam"
+    params:
+      lr: 0.0002
+      weight_decay: 1e-5
+
+  lr_scheduler:
+    name: "CosineAnnealingLR"
+    params:
+      eta_min: 1e-6
+
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: false
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0
+
+dataloaders:
+  train:
+    batch_size: 64
+    shuffle: true
+    num_workers: 8
+    prefetch_factor: 2
+    pin_memory: true
+    use_balanced_sampler: true
+    balancing_method: "inverse"
+  validation:
+    batch_size: 64
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+  test:
+    batch_size: 64
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+logging:
+  tensorboard: true
+  log_dir: "outputs/train/revalexo_cross_population/mobilenetv3_small"
+  log_frequency: 50

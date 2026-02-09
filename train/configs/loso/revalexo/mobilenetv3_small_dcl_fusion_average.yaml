@@ -1,0 +1,192 @@
+# configs/loso/revalexo/mobilenetv3_small_dcl_fusion_average.yaml
+# LOSO configuration for MobileNetV3-Small + DeepConvLSTM with Average fusion
+
+# Base dataset configuration
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml"
+  window_size: 2.0
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
+
+  # Override column patterns from base dataset config
+  modalities:
+    raw_imu:
+      column_patterns:
+        # Lower body accelerometer channels
+        - "acc_Pelvis_*"
+        - "acc_*_Upper_Leg_*"
+        - "acc_*_Lower_Leg_*"
+        - "acc_*_Foot_*"
+        # Lower body gyroscope channels
+        - "gyro_Pelvis_*"
+        - "gyro_*_Upper_Leg_*"
+        - "gyro_*_Lower_Leg_*"
+        - "gyro_*_Foot_*"
+
+  splits:
+    train_subjects: ["Subject29", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
+    val_subjects: ["Subject08"]
+    test_subjects: ["Subject08"]
+
+  sample_multiplier:
+    train: 10
+    validation: 10
+    test: 10
+
+# Modalities to use (IMU and Image)
+modalities:
+  raw_imu:
+    train_transforms:
+      - name: "AddGaussianNoise"
+        params:
+          mean: 0.0
+          std: 0.01
+          probability: 0.5
+    eval_transforms: []
+
+  image:
+    use_frames: false
+    use_end_frame: true  # Use end frame for prediction
+    
+    train_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "RandomResizedCropImage"
+        params:
+          size: 224
+          scale: [0.8, 1.0]
+          ratio: [0.75, 1.33]
+      - name: "RandomHorizontalFlipImage"
+        params:
+          p: 0.5
+    
+    eval_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "CenterCropImage"
+        params:
+          size: 224
+
+# Models configuration
+models:
+  # IMU Model - DeepConvLSTM
+  raw_imu_model:
+    name: "DeepConvLSTM"
+    params:
+      channels: 42
+      window_size: 120
+      conv_kernels: 64
+      conv_kernel_size: 11
+      lstm_units: 1024
+      lstm_layers: 1
+      dropout: 0.5
+      feature_dim: 256  # Output feature dimension for fusion
+
+  # Image Model - MobileNetV3-Small
+  image_model:
+    name: "MobileNetV3Small_Image"
+    params:
+      pretrained: true
+      freeze_backbone: false
+      freeze_early_layers: true
+      feature_dim: 256  # Output feature dimension for fusion
+
+  # Fusion model with Average fusion
+  fusion_model:
+    name: "FusionModel"
+    params:
+      fusion_method: "average"
+      hidden_dim: 512
+      dropout: 0.5
+
+# Task configuration
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.1
+
+# Training configuration
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+  
+  optimizer:
+    name: "Adam"
+    params:
+      lr: 0.0002
+      weight_decay: 1e-5
+  
+  lr_scheduler:
+    name: "CosineAnnealingLR"
+    params:
+      eta_min: 1e-6
+  
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+  
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: false
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0  # Use horizon 0 (0.0s) for checkpointing
+
+# Dataloaders configuration
+dataloaders:
+  train:
+    batch_size: 64
+    shuffle: true
+    num_workers: 8
+    prefetch_factor: 2
+    pin_memory: true
+    use_balanced_sampler: true
+    balancing_method: "inverse"
+  validation:
+    batch_size: 64
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+  test:
+    batch_size: 64
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+
+# Metrics for evaluation
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+# Logging configuration
+logging:
+  tensorboard: true
+  log_dir: "outputs/loso/revalexo/mobilenetv3_small_dcl_fusion_average"
+  log_frequency: 50

@@ -1,0 +1,188 @@
+# configs/train/revalexo_cross_population/sftik_fusion.yaml
+# SFTIK (Sandwich Fusion Transformer for IMU and Kinematic data)
+# Cross-population: Train on Healthy, Test on Stroke subjects
+#
+# SFTIK uses a sandwich transformer architecture that processes IMU and video
+# features through alternating self-attention and cross-attention layers.
+
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml"
+  window_size: 2.0
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
+
+  modalities:
+    raw_imu:
+      column_patterns:
+        - "acc_Pelvis_*"
+        - "acc_*_Upper_Leg_*"
+        - "acc_*_Lower_Leg_*"
+        - "acc_*_Foot_*"
+        - "gyro_Pelvis_*"
+        - "gyro_*_Upper_Leg_*"
+        - "gyro_*_Lower_Leg_*"
+        - "gyro_*_Foot_*"
+
+  # Cross-population split: Healthy (train) -> Stroke (val/test)
+  splits:
+    train_subjects: ["Subject01", "Subject02", "Subject03", "Subject11", "Subject20", "Subject24", "Subject29"]
+    val_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject17", "Subject26"]
+    test_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject17", "Subject26"]
+
+  sample_multiplier:
+    train: 10
+    validation: 10
+    test: 10
+
+modalities:
+  raw_imu:
+    train_transforms:
+      - name: "AddGaussianNoise"
+        params:
+          mean: 0.0
+          std: 0.01
+          probability: 0.5
+    eval_transforms: []
+
+  video:
+    frames_to_sample: 4
+    use_frames: false
+    train_transforms:
+      - name: "DivideBy255"
+        params: {}
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 224
+      - name: "RandomResizedCropVideo"
+        params:
+          size: [224, 224]
+          scale: [0.8, 1.0]
+          ratio: [0.75, 1.33]
+      - name: "RandomHorizontalFlipVideo"
+        params:
+          p: 0.5
+    eval_transforms:
+      - name: "DivideBy255"
+        params: {}
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 224
+      - name: "CenterCropVideo"
+        params:
+          crop_size: [224, 224]
+
+models:
+  raw_imu_model:
+    name: "SFTIK_IMUEncoder"
+    params:
+      channels: 42
+      window_size: 120
+      feature_dim: 256
+
+  video_model:
+    name: "SFTIK_VideoEncoder"
+    params:
+      feature_dim: 256
+
+  fusion_model:
+    name: "SFTIK_Fusion"
+    params:
+      num_classes: 13
+      window_size: 120
+      imu_channels: 42
+      use_angle: false
+      patch_len: 12
+      stride: 12
+      embed_dim: 768
+      pre_depth: 6
+      late_depth: 6
+      n_heads: 12
+      mlp_ratio: 4.0
+      feature_dim: 256
+      dropout: 0.2
+
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.1
+
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+
+  optimizer:
+    name: "Adam"
+    params:
+      lr: 0.0002
+      weight_decay: 0.0
+
+  lr_scheduler:
+    name: "CosineAnnealingLR"
+    params:
+      T_max: 50
+      eta_min: 1e-6
+
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: false
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0
+
+dataloaders:
+  train:
+    batch_size: 16
+    shuffle: true
+    num_workers: 16
+    prefetch_factor: 2
+    pin_memory: true
+    use_balanced_sampler: true
+    balancing_method: "inverse"
+  validation:
+    batch_size: 16
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+  test:
+    batch_size: 16
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+logging:
+  tensorboard: true
+  log_dir: "outputs/train/revalexo_cross_population/sftik_fusion"
+  log_frequency: 50

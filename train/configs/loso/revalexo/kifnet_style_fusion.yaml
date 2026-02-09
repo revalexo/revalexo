@@ -1,0 +1,177 @@
+# configs/loso/revalexo/kifnet_style_fusion.yaml
+# KIFNET-style configuration with MLP encoder for IMU and MobileOne for images
+
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml"
+  window_size: 2.0
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
+
+  # Override column patterns from base dataset config
+  modalities:
+    raw_imu:
+      column_patterns:
+        # Lower body accelerometer channels
+        - "acc_Pelvis_*"
+        - "acc_*_Upper_Leg_*"
+        - "acc_*_Lower_Leg_*"
+        - "acc_*_Foot_*"
+        # Lower body gyroscope channels
+        - "gyro_Pelvis_*"
+        - "gyro_*_Upper_Leg_*"
+        - "gyro_*_Lower_Leg_*"
+        - "gyro_*_Foot_*"
+
+  splits:
+    train_subjects: ["Subject29", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
+    val_subjects: ["Subject08"]
+    test_subjects: ["Subject08"]
+
+  sample_multiplier:
+    train: 10
+    validation: 10
+    test: 10
+
+modalities:
+  raw_imu:
+    train_transforms:
+      - name: "AddGaussianNoise"
+        params:
+          mean: 0.0
+          std: 0.01
+          probability: 0.5
+    eval_transforms: []
+
+  image:
+    use_frames: false
+    use_end_frame: true
+    
+    train_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "RandomResizedCropImage"
+        params:
+          size: 224
+          scale: [0.8, 1.0]
+          ratio: [0.75, 1.33]
+      - name: "RandomHorizontalFlipImage"
+        params:
+          p: 0.5
+    
+    eval_transforms:
+      - name: "NormalizeImage"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ResizeImage"
+        params:
+          size: 256
+      - name: "CenterCropImage"
+        params:
+          size: 224
+
+models:
+  raw_imu_model:
+    name: "KIFNetMLP"
+    params:
+      channels: 42
+      window_size: 120
+      hidden_dims: [256, 256, 128]
+      feature_dim: 128
+      dropout: 0.0  # KIFNET doesn't use dropout
+      leaky_relu_slope: -0.01
+
+  image_model:
+    name: "MobileOneS0_Image"
+    params:
+      feature_dim: 128
+      pretrained: true
+      freeze_backbone: true
+      freeze_early_layers: true
+      mobileone_path: "/path/to/ml-mobileone" # Path to ml-mobileone repository (CHANGE THIS TO YOUR LOCAL PATH)
+      mobileone_weights: "/path/to/mobileone_s0_unfused.pth.tar" # Path to MobileOne S0 weights (CHANGE THIS TO YOUR LOCAL PATH)
+
+  # Fusion model - KIFNET style with AdaIN
+  fusion_model:
+    name: "FusionModel"
+    params:
+      fusion_method: "adain_content_style"
+      hidden_dim: 256
+      dropout: 0.0
+
+# Task configuration
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.0
+
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+  
+  optimizer:
+    name: "Adam"
+    params:
+      lr: 0.0001
+      weight_decay: 0
+  
+  early_stopping:
+    enabled: true
+    patience: 5  # KIFNET early stopping
+    min_delta: 0.001
+  
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: true
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0
+
+dataloaders:
+  train:
+    batch_size: 256
+    shuffle: true
+    num_workers: 16
+    prefetch_factor: 2
+    pin_memory: true
+    use_balanced_sampler: false
+  validation:
+    batch_size: 256
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+  test:
+    batch_size: 256
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+logging:
+  tensorboard: true
+  log_dir: "outputs/loso/revalexo/kifnet_style"
+  log_frequency: 50

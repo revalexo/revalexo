@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+
+pretrained/*
+
+outputs/*
+
+deprecated/*
+
+hpc-documentation.md
+
+weights/*
+
+# Inference and demo outputs
+analysis_results/
+
+*.mp4
+*_inference_results.json
+
+*.tmp
+*.swp
+.DS_Store

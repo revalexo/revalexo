@@ -1,0 +1,148 @@
+# configs/loso/revalexo/x3d_m.yaml
+# X3D-M video model
+
+# Base dataset configuration
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml"
+  window_size: 2.0
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
+
+  splits:
+    train_subjects: ["Subject29", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
+    val_subjects: ["Subject08"]
+    test_subjects: ["Subject08"]
+
+  # Sample multiplier configuration- If necessary to multiply item sampling rate from the dataset (more samples per video)
+  sample_multiplier:
+    train: 10
+    validation: 10
+    test: 10
+
+# Modalities to use (only video)
+modalities:
+  video:
+    frames_to_sample: 16
+    use_frames: false
+    train_transforms:
+      - name: "DivideBy255"
+        params: {}
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.45, 0.45, 0.45]
+          std: [0.225, 0.225, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 256
+      - name: "RandomResizedCropVideo"
+        params:
+          size: [256, 256]
+          scale: [0.8, 1.0]
+          ratio: [0.75, 1.33]
+      - name: "RandomHorizontalFlipVideo"
+        params:
+          p: 0.5
+    eval_transforms:
+      - name: "DivideBy255"
+        params: {}
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.45, 0.45, 0.45]
+          std: [0.225, 0.225, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 256
+      - name: "CenterCropVideo"
+        params:
+          crop_size: [256, 256]
+
+# Models configuration
+models:
+  video_model:
+    name: "X3D_Video"
+    params:
+      pretrained: true
+      model_size: "m"
+      freeze_backbone: false
+
+# Task configuration
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.1
+
+# Training configuration
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+
+  optimizer:
+    name: "AdamW"
+    params:
+      lr: 0.0002
+      weight_decay: 1e-4
+
+  lr_scheduler:
+    name: "CosineAnnealingLR"
+    params:
+      eta_min: 1e-6
+
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: false
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0
+
+# Dataloaders configuration - larger batch size for H100 (80GB)
+dataloaders:
+  train:
+    batch_size: 32
+    shuffle: true
+    num_workers: 16
+    prefetch_factor: 4
+    pin_memory: true
+    use_balanced_sampler: true
+    balancing_method: "inverse"
+  validation:
+    batch_size: 32
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+  test:
+    batch_size: 32
+    shuffle: false
+    num_workers: 16
+    pin_memory: true
+
+# Metrics for evaluation
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+# Logging configuration
+logging:
+  tensorboard: true
+  log_dir: "outputs/loso/revalexo/x3d_m"
+  log_frequency: 50

@@ -1,0 +1,220 @@
+# configs/loso/revalexo/evi_mae_fusion.yaml
+# EVI-MAE Fusion Model for RevalExo Dataset
+# Uses pretrained EVI-MAE weights from multimodal masked autoencoder pretraining
+
+# Base dataset configuration
+dataset:
+  name: "RevalExoDataset"
+  config_path: "configs/datasets/revalexodataset.yaml"
+  window_size: 2.0
+  prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
+
+  # Override column patterns from base dataset config
+  # EVI-MAE needs 12 accelerometer channels (4 body parts x 3 axes)
+  modalities:
+    raw_imu:
+      column_patterns:
+        # Lower body accelerometer channels only (21 channels total)
+        # The EVI_MAE_IMUTransform will select 12 channels from these
+        - "acc_Pelvis_*"
+        - "acc_*_Upper_Leg_*"
+        - "acc_*_Lower_Leg_*"
+        - "acc_*_Foot_*"
+
+  splits:
+    train_subjects: ["Subject29", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
+    val_subjects: ["Subject08"]
+    test_subjects: ["Subject08"]
+
+  # Sample multiplier configuration
+  sample_multiplier:
+    train: 10
+    validation: 10
+    test: 10
+
+# Modalities to use (IMU and Video)
+modalities:
+  raw_imu:
+    train_transforms:
+      - name: "EVI_MAE_IMUTransform"
+        params:
+          # RevalExo-specific parameters from pretrained model
+          norm_mean: -1.223483
+          norm_std: 7.991705
+          # EVI-MAE spectrogram parameters
+          target_length: 320
+          target_height: 128
+          n_fft: 256
+          win_length: 24
+          hop_length: 1
+          sampling_rate: 60
+          expected_signal_length: 250
+          # Use RevalExo channel mapping (lower body sensors)
+          use_revalexo_mapping: true
+    eval_transforms:
+      - name: "EVI_MAE_IMUTransform"
+        params:
+          norm_mean: -1.223483
+          norm_std: 7.991705
+          target_length: 320
+          target_height: 128
+          n_fft: 256
+          win_length: 24
+          hop_length: 1
+          sampling_rate: 60
+          expected_signal_length: 250
+          use_revalexo_mapping: true
+
+  video:
+    frames_to_sample: 16
+    use_frames: false
+    train_transforms:
+      - name: "DivideBy255"
+        params: {}
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 256
+      - name: "RandomResizedCropVideo"
+        params:
+          size: [224, 224]
+          scale: [0.8, 1.0]
+          ratio: [0.75, 1.33]
+      - name: "RandomHorizontalFlipVideo"
+        params:
+          p: 0.5
+    eval_transforms:
+      - name: "DivideBy255"
+        params: {}
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 256
+      - name: "CenterCropVideo"
+        params:
+          crop_size: [224, 224]
+
+# Models configuration - EVI-MAE Fusion (fusion-only model)
+models:
+  fusion_model:
+    name: "EVI_MAE_Fusion"
+    params:
+      # Pretrained checkpoint from EVI-MAE pretraining on RevalExo
+      pretrained_checkpoint: "pretrained/EVI-MAE/best_evi_model.pth"
+
+      # Video encoder parameters (from pretrained args.json)
+      video_model_dict:
+        img_size: 224
+        patch_size: 16
+        encoder_embed_dim: 384
+        encoder_depth: 12
+        encoder_num_heads: 6
+        mlp_ratio: 4
+        qkv_bias: true
+
+      # IMU encoder parameters (from pretrained args.json)
+      imu_model_dict:
+        patch_size: 16
+        channel_num: 12
+        plot_height: 128
+        target_length: 320
+        encoder_embed_dim: 768
+        encoder_depth: 11
+        encoder_num_heads: 12
+        enable_graph: true  # Requires DGL installed (pip install dgl)
+        imu_graph_net: "gin"
+
+      # Classifier parameters
+      feature_dim: 768
+      hidden_dim: 512
+      dropout: 0.5
+      freeze_encoders: false
+      shared_classifier_layers: true
+
+# Task configuration
+task:
+  type: "recognition"
+  loss:
+    name: "CrossEntropyLoss"
+    params:
+      label_smoothing: 0.1
+
+# Training configuration
+training:
+  epochs: 50
+  seed: 42
+  val_every: 1
+
+  optimizer:
+    name: "AdamW"
+    params:
+      lr: 0.00005  # Lower learning rate for finetuning
+      weight_decay: 0.05
+
+  lr_scheduler:
+    name: "CosineAnnealingLR"
+    params:
+      eta_min: 1e-7
+
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001
+
+  checkpointing:
+    enabled: true
+    frequency: 1
+    save_best_only: false
+    metric: "classificationreport_weighted_f1-score"
+    mode: "max"
+    horizon_index: 0
+
+# Dataloaders configuration
+dataloaders:
+  train:
+    batch_size: 8
+    shuffle: true
+    num_workers: 8
+    prefetch_factor: 2
+    pin_memory: true
+    use_balanced_sampler: true
+    balancing_method: "inverse"
+  validation:
+    batch_size: 8
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+  test:
+    batch_size: 8
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+
+# Metrics for evaluation
+metrics:
+  - name: "Accuracy"
+  - name: "F1Score"
+    params:
+      average: "macro"
+      include_precision_recall: true
+  - name: "ClassificationReport"
+    params:
+      output_format: "dict"
+      include_csv: true
+      zero_division: 0
+  - name: "ConfusionMatrix"
+    params:
+      normalize: false
+      include_csv: true
+
+# Logging configuration
+logging:
+  tensorboard: true
+  log_dir: "outputs/loso/revalexo/evi_mae_fusion"
+  log_frequency: 50
