@@ -97,6 +97,8 @@ Two cross-population transfer settings are available:
 
 **Contrastive pretraining:**
 
+> **Pretraining from scratch**: To reproduce the contrastive pretrained checkpoint, see [`../pretrain/README.md`](../pretrain/README.md#contrastive-pretraining-imu2clip).
+
 Set the path to the contrastively pretrained IMU encoder checkpoint in the config:
 
 ```yaml
@@ -177,6 +179,12 @@ pretrained/
 Download the pretrained checkpoints from the link below and place them in the `pretrained/` directory, preserving the folder structure above:
 
 > [[Download Pretrained Models]](https://kuleuven-my.sharepoint.com/:f:/g/personal/diwas_lamsal_kuleuven_be/IgDAiB2SZR5RS7hXB8x3UZNqAaVs7xccU_jvEpNV42VMlcM?e=7SefJQ)
+
+### Training Logs
+
+Training logs for experiments are available for reference:
+
+> [[Download Training Logs]](https://kuleuven-my.sharepoint.com/personal/diwas_lamsal_kuleuven_be/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fdiwas%5Flamsal%5Fkuleuven%5Fbe%2FDocuments%2FRevalExo%2FDataset%2Ftrain%5Flogs&ga=1)
 
 ## Citation
 

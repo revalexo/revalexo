@@ -39,6 +39,10 @@ dependencies:
   - pip:
     # Video processing
     - av>=10.0.0
+    - fvcore
+    - iopath
+    # NOTE: If pytorchvideo from PyPI fails, install from GitHub instead:
+    #   pip install --no-deps git+https://github.com/facebookresearch/pytorchvideo.git
     - pytorchvideo>=0.1.5
 
     # Vision models

@@ -20,18 +20,7 @@ This directory contains code adapted from **IMU-Video-MAE** (ECCV 2024).
 ### Modified files
 
 - **`src/dataloader.py`**
-  - Added `'revalexo'` and `'aidwear'` to the dataset name detection condition (line 135) so that RevalExo data paths are recognized as WEAR-format datasets.
-  - Added conditional IMU channel selection (lines 247-252): when the data path contains `'revalexo'`, uses `list(range(12))` to read all 12 pre-mapped channels directly, instead of the original WEAR index remapping.
-
 - **`src/run_evimae_pretrain.py`**
-  - Added shape-mismatch checking during checkpoint loading (lines 185-199). When loading pretrained weights, layers with mismatched shapes (due to different IMU channel configurations) are skipped instead of causing a RuntimeError. Skipped keys are logged for transparency.
-
-### Unmodified files (copied as-is from original)
-
-- `src/traintest_evimae.py` - Training/evaluation loop
-- `src/transforms.py` - Video data augmentation transforms
-- `src/models/` - All model architecture files (evi_mae.py, gin.py, gat.py, etc.)
-- `src/utilities/` - Utility functions (stats.py, util.py)
 
 ## Citation
 

@@ -1,0 +1,171 @@
+# configs/pretrain_deepconv_lower_mvit_revalexo.yaml
+# IMU2CLIP pretraining: DeepConvLSTM (lower body acc+gyro) <-> MViT-B
+
+experiment_name: "imu2clip_deepconv_lower_mvit_revalexo"
+
+# Dataset configuration
+dataset:
+  root_path: "/path/to/RevalExoDataset"
+  data_pairs_folder: "data_pairs"
+  label_mapping_file: "label_mapping.json"
+
+  # Default settings
+  default_window_size: 2.0
+
+  # Modality configurations
+  modalities:
+    raw_imu:
+      sampling_rate: 60
+      column_patterns:
+        # Lower body accelerometer channels
+        - "acc_Pelvis_*"
+        - "acc_*_Upper_Leg_*"
+        - "acc_*_Lower_Leg_*"
+        - "acc_*_Foot_*"
+        # Lower body gyroscope channels
+        - "gyro_Pelvis_*"
+        - "gyro_*_Upper_Leg_*"
+        - "gyro_*_Lower_Leg_*"
+        - "gyro_*_Foot_*"
+      # This gives us 42 channels (7 lower body parts × 3 axes × 2 sensors)
+
+    video:  # Using video modality for MViT
+      frame_rate: 30
+      clip_duration: 2.0
+
+  # Data splits (subjects with both IMU and video data)
+  train_subjects: ["Subject29", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
+  val_subjects: ["Subject08"]
+
+# Model configurations
+models:
+  imu_encoder:
+    name: "DeepConvLSTM"
+    params:
+      channels: 42  # 7 lower body parts × 3 axes × 2 sensors
+      window_size: 120
+      conv_kernels: 64
+      conv_kernel_size: 11
+      lstm_units: 1024
+      lstm_layers: 1
+      dropout: 0.5
+      feature_dim: 512  # Joint embedding dimension (larger for MViT)
+
+  visual_encoder:
+    name: "MViT_Video"
+    params:
+      pretrained: true
+      variant: "16x4"  # 16 frames, temporal stride 4
+      freeze_backbone: false
+      feature_dim: 512  # Joint embedding dimension
+
+# Training configuration
+training:
+  batch_size: 8  # For 16GB GPU with MViT + mixed precision
+  num_workers: 16
+  max_epochs: 50
+  sample_multiplier: 10
+  video_model_frame_size: 16  # MViT 16x4 needs 16 frames
+  accumulate_grad_batches: 4  # Effective batch size = 8 * 4 = 32
+
+  # Contrastive learning settings
+  temperature: 0.1
+  learn_temperature: true
+  symmetric_loss: true
+  freeze_visual: false  # Don't freeze visual encoder
+
+  # Optimizer settings
+  learning_rate: 0.00005
+  weight_decay: 0.00025
+  use_adagrad: false
+
+  # Checkpointing
+  save_dir: "./checkpoints"
+  save_top_k: 3
+  monitor: "val_loss"
+  mode: "min"
+
+# Data augmentation
+transforms:
+  train:
+    raw_imu:
+      - name: "Scale"
+        params:
+          factor_range: [0.8, 1.2]
+          probability: 0.5
+      - name: "MagnitudeWarpingIMU"
+        params:
+          sigma: 0.2
+          knot: 4
+          p: 0.3
+      - name: "TimeWarpingIMU"
+        params:
+          sigma: 0.2
+          knot: 4
+          p: 0.3
+      - name: "ChannelDropoutIMU"
+        params:
+          p: 0.2
+          channel_drop_prob: 0.1
+      - name: "AddGaussianNoise"
+        params:
+          mean: 0.0
+          std: 0.02
+          probability: 0.5
+
+    video:
+      - name: "DivideBy255"
+        params: {}
+      - name: "ColorJitterVideo"
+        params:
+          brightness: 0.4
+          contrast: 0.4
+          saturation: 0.4
+          hue: 0.1
+          p: 0.8
+      - name: "RandomGrayscaleVideo"
+        params:
+          p: 0.2
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.45, 0.45, 0.45]
+          std: [0.225, 0.225, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 256
+      - name: "RandomResizedCropVideo"
+        params:
+          size: [224, 224]  # MViT expects 224x224
+          scale: [0.6, 1.0]
+      - name: "RandomHorizontalFlipVideo"
+        params:
+          p: 0.5
+      - name: "RandomErasingVideo"
+        params:
+          p: 0.3
+          scale: [0.02, 0.33]
+          ratio: [0.3, 3.3]
+
+  val:
+    raw_imu: []
+
+    video:
+      - name: "DivideBy255"
+        params: {}
+      - name: "NormalizeVideo"
+        params:
+          mean: [0.45, 0.45, 0.45]
+          std: [0.225, 0.225, 0.225]
+      - name: "ShortSideScale"
+        params:
+          size: 256
+      - name: "CenterCropVideo"
+        params:
+          crop_size: [224, 224]
+
+# Logging
+logging:
+  project: "imu2clip_revalexo"
+  name: "deepconv_lower_mvit"
+  save_dir: "./logs"
+  log_every_n_steps: 50

@@ -321,7 +321,7 @@ class RevalExoToEVIMAE:
         print(f"   imu_dataset_std={std:.2f}")
         print(f"   imu_channel_num=12")
         print("2. Run the pretraining script:")
-        print("   cd /home/diwas/PhD/External/IMU-Video-MAE/egs/release")
+        print("   cd egs/release")
         print("   bash pretrain_revalexo.sh")
 
 

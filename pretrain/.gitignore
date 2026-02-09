@@ -1,3 +1,5 @@
 imu-video-mae/data_release/
+contrastive/checkpoints/
+contrastive/logs/
 __pycache__/
 *.pyc

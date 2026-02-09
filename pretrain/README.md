@@ -1,6 +1,9 @@
 # Pretraining
 
-This directory contains the pretraining pipeline for self-supervised models used in RevalExo.
+This directory contains the pretraining pipelines for self-supervised models used in RevalExo:
+
+- [**EVI-MAE**](#evi-mae-imu-video-masked-autoencoder) - Masked autoencoder pretraining (IMU + video reconstruction)
+- [**Contrastive (IMU2CLIP)**](#contrastive-pretraining-imu2clip) - Cross-modal contrastive alignment (IMU ↔ video)
 
 ## EVI-MAE (IMU-Video Masked Autoencoder)
 
@@ -104,4 +107,88 @@ To skip pretraining, download the pre-computed checkpoint and place it directly 
 
 ```
 train/pretrained/EVI-MAE/best_evi_model.pth
+```
+
+---
+
+## Contrastive Pretraining (IMU2CLIP)
+
+Contrastive pretraining aligns IMU and video representations in a shared embedding space using InfoNCE loss. The pretrained IMU encoder (DeepConvLSTM) is then used for vision-guided knowledge transfer in the [`train/`](../train/) directory.
+
+The code is adapted from [IMU2CLIP](https://github.com/facebookresearch/imu2clip) (Meta Research, 2022). See [`contrastive/ATTRIBUTION.md`](contrastive/ATTRIBUTION.md) for details on modifications.
+
+### Prerequisites
+
+1. **Conda environment**: Uses the same environment as training:
+
+   ```bash
+   conda env create -f ../train/environment-cuda.yml
+   conda activate multimodal-env-cuda
+   ```
+2. **RevalExo dataset**: Download from:
+
+   > [[Download RevalExo Dataset]](https://rdr.kuleuven.be/dataset.xhtml?persistentId=doi:10.48804/OWJOID)
+   >
+
+   Download and extract `trimmed.zip`.
+
+### Step 1: Configure Dataset Path
+
+Edit the config file to set the path to the RevalExo dataset:
+
+```yaml
+# In configs/pretrain_deepconv_lower_x3d_revalexo.yaml
+dataset:
+  root_path: "/path/to/RevalExoDataset"
+```
+
+### Step 2: Run Pretraining
+
+```bash
+cd contrastive
+bash run_training.sh
+```
+
+Or run directly with a specific config:
+
+```bash
+cd contrastive
+python3 pretrain.py --config configs/pretrain_deepconv_lower_x3d_revalexo.yaml --gpus 1
+```
+
+Two visual encoder variants are available:
+
+| Parameter            | X3D-XS          | MViT-B (16x4)    |
+| :------------------- | :-------------- | :--------------- |
+| Config               | `..._x3d_...` | `..._mvit_...` |
+| Batch size           | 64              | 8                |
+| IMU channels         | 42              | 42               |
+| Joint embedding dim  | 256             | 512              |
+| Video frames sampled | 4               | 16               |
+| Epochs               | 50              | 50               |
+
+### Step 3: Use Pretrained IMU Encoder for Fine-tuning
+
+After pretraining, copy the IMU encoder checkpoint:
+
+```bash
+cp contrastive/checkpoints/[EXPERIMENT]/imu_encoder_best.pt \
+   ../train/pretrained/contrastive/deepconvlstm_imu_encoder.pt
+```
+
+Then run vision-guided knowledge transfer from the `train/` directory:
+
+```bash
+cd ../train
+python train.py --config configs/train/revalexo_healthy_stroke_cross_modality/deepconvlstm_acc_gyro_contrastive_pretrained.yaml
+```
+
+### Pre-computed Checkpoint
+
+To skip pretraining, download the pre-computed checkpoint:
+
+> [[Download Pretrained Models]](https://kuleuven-my.sharepoint.com/:f:/g/personal/diwas_lamsal_kuleuven_be/IgDAiB2SZR5RS7hXB8x3UZNqAaVs7xccU_jvEpNV42VMlcM?e=7SefJQ)
+
+```
+train/pretrained/contrastive/deepconvlstm_imu_encoder.pt
 ```
