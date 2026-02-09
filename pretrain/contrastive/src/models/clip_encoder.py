@@ -60,7 +60,7 @@ class CLIPVisualEncoder(BaseEncoder):
             self.clip_model.eval()
         
         # Dummy classifier for compatibility (won't be used)
-        from models.base_models import MultiHorizonClassifier
+        from .base_models import MultiHorizonClassifier
         self.classifier = MultiHorizonClassifier(
             input_dim=feature_dim,
             num_classes=11,  # Dummy
