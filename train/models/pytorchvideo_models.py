@@ -34,6 +34,7 @@ class X3D_Video(BaseEncoder):
         self.backbone = torch.hub.load('facebookresearch/pytorchvideo', model_name, pretrained=pretrained)
         
         # Freeze backbone parameters if requested
+        self.freeze_backbone = freeze_backbone
         if freeze_backbone:
             for name, param in self.backbone.named_parameters():
                 if not name.startswith("blocks.5"):
@@ -83,6 +84,13 @@ class X3D_Video(BaseEncoder):
             shared_layers=shared_classifier_layers
         )
 
+    def train(self, mode=True):
+        """Override train to keep frozen backbone in eval mode (preserves BN running stats)."""
+        super().train(mode)
+        if self.freeze_backbone and mode:
+            self.backbone.eval()
+        return self
+
     def _print_trainable_params(self):
         for name, param in self.named_parameters():
             if param.requires_grad:
@@ -106,30 +114,35 @@ class X3D_Video(BaseEncoder):
         if len(x.shape) != 5:
             raise ValueError(f"Expected 5D input tensor [B, C, T, H, W], got shape: {x.shape}")
         
-        # Extract backbone features
-        backbone_features = self.backbone(x)
-        
+        # Extract backbone features (skip activation storage if frozen)
+        if self.freeze_backbone:
+            with torch.no_grad():
+                backbone_features = self.backbone(x)
+            backbone_features = backbone_features.detach()
+        else:
+            backbone_features = self.backbone(x)
+
         # Project features to desired dimension
         features = self.feature_projector(backbone_features)
-        
+
         return features
-    
+
     def forward(self, x):
         """
         Forward pass through the model
-        
+
         Args:
             x (torch.Tensor): Input tensor of shape [B, C, T, H, W]
-        
+
         Returns:
             List[torch.Tensor]: List of classification outputs for each prediction horizon
         """
         # Extract features
         features = self.encode_features(x)
-        
+
         # Apply multi-horizon classification
         outputs = self.classifier(features)
-        
+
         return outputs
 
 
@@ -189,30 +202,44 @@ class MViT_Video(BaseEncoder):
         )
         
         # Freeze backbone if requested
+        self.freeze_backbone = freeze_backbone
         if freeze_backbone:
             for name, param in self.backbone.named_parameters():
                 param.requires_grad = False
+            self.backbone.eval()
+
+    def train(self, mode=True):
+        """Override train to keep frozen backbone in eval mode (preserves BN running stats)."""
+        super().train(mode)
+        if self.freeze_backbone and mode:
+            self.backbone.eval()
+        return self
 
     def encode_features(self, x):
         """
         Extract features from input without classification head.
-        
+    
         Args:
             x: Input tensor of shape [B, C, T, H, W]
-            
+
         Returns:
             Feature representation of shape [B, feature_dim]
         """
         # Check input shape
         if len(x.shape) != 5:
             raise ValueError(f"Expected 5D input tensor [B, C, T, H, W], got shape: {x.shape}")
-        
-        # Extract backbone features
-        features = self.backbone(x)  # Shape: [B, N, D]
-        
+
+        # Extract backbone features (skip activation storage if frozen)
+        if self.freeze_backbone:
+            with torch.no_grad():
+                features = self.backbone(x)  # Shape: [B, N, D]
+            features = features.detach()
+        else:
+            features = self.backbone(x)  # Shape: [B, N, D]
+
         # For MViT, we need to extract just the class token (first token)
         class_token = features[:, 0]  # Shape: [B, D]
-        
+
         # Project features to desired dimension
         features = self.feature_projector(class_token)
         
@@ -276,6 +303,7 @@ class R3D_18_Video(BaseEncoder):
         self.backbone.fc = nn.Identity()
 
         # Freeze backbone parameters if requested
+        self.freeze_backbone = freeze_backbone
         if freeze_backbone:
             for name, param in self.backbone.named_parameters():
                 # Keep layer4 trainable
@@ -301,9 +329,21 @@ class R3D_18_Video(BaseEncoder):
 
         print(f"R3D-18 backbone dim: {self.backbone_dim}, feature dim: {self.feature_dim}")
 
+    def train(self, mode=True):
+        """Override train to keep frozen backbone in eval mode (preserves BN running stats)."""
+        super().train(mode)
+        if self.freeze_backbone and mode:
+            self.backbone.eval()
+        return self
+
     def encode_features(self, x: torch.Tensor) -> torch.Tensor:
         """Extract features before classification head."""
-        features = self.backbone(x)
+        if self.freeze_backbone:
+            with torch.no_grad():
+                features = self.backbone(x)
+            features = features.detach()
+        else:
+            features = self.backbone(x)
         features = self.feature_projector(features)
         return features
 

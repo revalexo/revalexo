@@ -55,6 +55,7 @@ class ResNet_Image(BaseEncoder):
         self.backbone.fc = nn.Identity()
         
         # Freeze backbone parameters if requested
+        self.freeze_backbone = freeze_backbone
         if freeze_backbone:
             for param in self.backbone.parameters():
                 param.requires_grad = False
@@ -83,11 +84,19 @@ class ResNet_Image(BaseEncoder):
         print(f"ResNet-{model_size} model initialized with {num_classes} classes")
         if freeze_backbone:
             print("All backbone layers frozen")
+            self.backbone.eval()
         elif freeze_early_layers:
             print("Early layers (conv1-layer3) frozen, layer4 trainable")
         else:
             print("All layers trainable")
-    
+
+    def train(self, mode=True):
+        """Override train to keep frozen backbone in eval mode (preserves BN running stats)."""
+        super().train(mode)
+        if self.freeze_backbone and mode:
+            self.backbone.eval()
+        return self
+
     def encode_features(self, x):
         """
         Extract features without classification head.
@@ -103,9 +112,14 @@ class ResNet_Image(BaseEncoder):
         if len(x.shape) != 4:
             raise ValueError(f"Expected 4D input tensor [B, C, H, W], got shape: {x.shape}")
         
-        # Extract backbone features
-        backbone_features = self.backbone(x)
-        
+        # Extract backbone features (skip activation storage if frozen)
+        if self.freeze_backbone:
+            with torch.no_grad():
+                backbone_features = self.backbone(x)
+            backbone_features = backbone_features.detach()
+        else:
+            backbone_features = self.backbone(x)
+
         # Project features to desired dimension
         features = self.feature_projector(backbone_features)
         
