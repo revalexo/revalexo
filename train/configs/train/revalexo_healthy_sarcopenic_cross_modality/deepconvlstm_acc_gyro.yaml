@@ -5,6 +5,7 @@
 dataset:
   name: "RevalExoDataset"
   config_path: "configs/datasets/revalexodataset.yaml"
+  val_split_ratio: 0.2
   window_size: 2.0
   prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
 
@@ -26,7 +27,7 @@ dataset:
   # Cross-modality split: Healthy (train) -> Sarcopenic (val/test)
   splits:
     train_subjects: ["Subject01", "Subject02", "Subject03", "Subject11", "Subject20", "Subject24", "Subject29"]
-    val_subjects: ["Subject04", "Subject13", "Subject14", "Subject16", "Subject18", "Subject19", "Subject21", "Subject22", "Subject28", "Subject30"]
+    # val_subjects: uses train_subjects split by val_split_ratio
     test_subjects: ["Subject04", "Subject13", "Subject14", "Subject16", "Subject18", "Subject19", "Subject21", "Subject22", "Subject28", "Subject30"]
 
   # Sample multiplier configuration

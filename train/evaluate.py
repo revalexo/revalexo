@@ -388,7 +388,7 @@ def main():
     print_evaluation_results(eval_metrics, prediction_horizons)
 
     epoch = checkpoint_info.get('epoch', 0)
-    save_evaluation_metrics(eval_metrics, output_dir, prediction_horizons, epoch)
+    save_evaluation_metrics(eval_metrics, os.path.join(output_dir, "test"), prediction_horizons, epoch)
     save_evaluation_summary(eval_metrics, output_dir, prediction_horizons, config, args, checkpoint_info)
 
     # Save config copy

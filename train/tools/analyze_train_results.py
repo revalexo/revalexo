@@ -77,9 +77,10 @@ class TrainOnlyAnalyzer:
             
             self.model_names.append(model_name)
             
-            # Extract metrics from each horizon directory
-            horizon_dirs = sorted([d for d in latest_timestamp.iterdir() 
-                                 if d.is_dir() and d.name.startswith('horizon_')])
+            # Extract metrics from test horizon directories
+            test_dir = latest_timestamp / 'test'
+            horizon_dirs = sorted([d for d in test_dir.iterdir()
+                                 if d.is_dir() and d.name.startswith('horizon_')]) if test_dir.exists() else []
             
             print(f"  Found {len(horizon_dirs)} horizons")
             

@@ -61,9 +61,11 @@ def parse_args():
     parser.add_argument('--transition-window', type=float, default=0.5,
                         help='Transition window size in seconds (default: 0.5)')
     
-    parser.add_argument('--deterministic', action='store_true',
-                        help='Enable fully deterministic mode (may impact performance)') # Dropout?
-    
+    parser.add_argument('--deterministic', action='store_true', default=True,
+                        help='Enable fully deterministic mode (may impact performance)')
+    parser.add_argument('--no-deterministic', action='store_false', dest='deterministic',
+                        help='Disable deterministic mode for faster training')
+
     return parser.parse_args()
 
 
@@ -283,7 +285,9 @@ def main_worker(rank: int, world_size: int, args: argparse.Namespace):
     if args.deterministic:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        torch.use_deterministic_algorithms(True)
+        # warn_only=True: uses deterministic algorithms where available,
+        # warns (instead of crashing) for ops without deterministic implementations.
+        torch.use_deterministic_algorithms(True, warn_only=True)
         os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
         print("Deterministic mode enabled - performance may be impacted")
     
@@ -627,6 +631,16 @@ def main_worker(rank: int, world_size: int, args: argparse.Namespace):
         device=device,
         metrics=metrics,
         compute_per_subject=True
+    )
+
+    # Always save test classification reports and confusion matrices to test/ subfolder
+    from evaluate import save_evaluation_metrics
+    test_output_dir = os.path.join(checkpoint_dir, "test")
+    save_evaluation_metrics(
+        metrics=test_metrics,
+        output_dir=test_output_dir,
+        prediction_horizons=prediction_horizons,
+        epoch=epoch + 1
     )
 
     # Save per-subject results if available

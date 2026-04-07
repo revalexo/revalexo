@@ -4,12 +4,13 @@
 dataset:
   name: "RevalExoDataset"
   config_path: "configs/datasets/revalexodataset.yaml"
+  val_split_ratio: 0.2
   window_size: 2.0
   prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
 
   splits:
     train_subjects: ["Subject29", "Subject02", "Subject24", "Subject26", "Subject05", "Subject07", "Subject17", "Subject06", "Subject11", "Subject03", "Subject20", "Subject01"]
-    val_subjects: ["Subject08"]
+    # val_subjects: uses train_subjects split by val_split_ratio (set by LOSO script)
     test_subjects: ["Subject08"]
 
   # Sample multiplier configuration- If necessary to multiply item sampling rate from the dataset (more samples per video)
@@ -24,6 +25,8 @@ modalities:
     use_end_frame: true  # Use end frame for prediction
     
     train_transforms:
+      - name: "DivideBy255"
+        params: {}
       - name: "NormalizeImage"
         params:
           mean: [0.485, 0.456, 0.406]
@@ -41,6 +44,8 @@ modalities:
           p: 0.5
     
     eval_transforms:
+      - name: "DivideBy255"
+        params: {}
       - name: "NormalizeImage"
         params:
           mean: [0.485, 0.456, 0.406]

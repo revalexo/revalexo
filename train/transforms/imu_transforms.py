@@ -1,8 +1,7 @@
 # transforms/imu_transforms.py
 """
 IMU data transformations for EVI-MAE model.
-Converts raw IMU data to STFT spectrograms.
-Fixed for AidWear dataset with proper channel mapping and STFT parameters.
+Converts raw IMU data to STFT spectrograms with proper channel mapping and STFT parameters.
 """
 
 import torch
@@ -53,16 +52,17 @@ class IMUToSpectrogram(nn.Module):
         self.use_log_scale = use_log_scale
         self.expected_signal_length = expected_signal_length
         
-        # Default channel mapping for AidWear data
-        # Based on the actual column names provided
+        # Default channel mapping for RevalExo data
         if channel_mapping is None:
-            # For AidWear: use Hand for arms, Foot for legs
-            # Indices based on the column order you provided
+            # RevalExo: Lower body IMU with Lower_Leg/Foot sensors
+            # acc_Pelvis (0-2), acc_Right_Upper_Leg (3-5), acc_Right_Lower_Leg (6-8),
+            # acc_Right_Foot (9-11), acc_Left_Upper_Leg (12-14), acc_Left_Lower_Leg (15-17),
+            # acc_Left_Foot (18-20)
             self.channel_mapping = {
-                'left_arm': [30, 31, 32],    # acc_Left_Hand_X/Y/Z (indices 30-32)
-                'right_arm': [18, 19, 20],   # acc_Right_Hand_X/Y/Z (indices 18-20)
-                'left_leg': [48, 49, 50],    # acc_Left_Foot_X/Y/Z (indices 48-50)
-                'right_leg': [39, 40, 41]    # acc_Right_Foot_X/Y/Z (indices 39-41)
+                'left_arm': [15, 16, 17],    # acc_Left_Lower_Leg_X/Y/Z
+                'right_arm': [6, 7, 8],      # acc_Right_Lower_Leg_X/Y/Z
+                'left_leg': [18, 19, 20],    # acc_Left_Foot_X/Y/Z
+                'right_leg': [9, 10, 11]     # acc_Right_Foot_X/Y/Z
             }
         else:
             self.channel_mapping = channel_mapping
@@ -277,7 +277,7 @@ class AdaptiveIMUChannelMapping:
         self.channel_mapping = self._create_adaptive_mapping()
     
     def _create_adaptive_mapping(self) -> Dict[str, List[int]]:
-        """Create adaptive mapping based on column names for AidWear dataset."""
+        """Create adaptive mapping based on column names."""
         mapping = {
             'left_arm': [],
             'right_arm': [],
@@ -285,8 +285,8 @@ class AdaptiveIMUChannelMapping:
             'right_leg': []
         }
         
-        # For AidWear dataset, based on the actual column names:
-        # We'll use Hand sensors for arms and Foot sensors for legs
+        # Map based on available sensor names
+        # Uses Hand sensors for arms and Foot sensors for legs
         for idx, col in enumerate(self.column_names):
             col_lower = col.lower()
             
@@ -348,7 +348,6 @@ class EVI_MAE_IMUTransform(nn.Module):
     Resamples data to match EVI-MAE's expected input format.
 
     Supports multiple dataset configurations:
-    - AidWear: Full body IMU with Hand/Foot sensors
     - RevalExo: Lower body IMU with Lower_Leg/Foot sensors
     - Direct: Uses first 12 columns directly (for pre-processed data)
     """
@@ -365,7 +364,6 @@ class EVI_MAE_IMUTransform(nn.Module):
         sampling_rate: int = 60,
         target_sampling_rate: int = 125,  # EVI-MAE expects 125Hz
         expected_signal_length: int = 250,  # EVI-MAE expects 250 samples
-        use_aidwear_mapping: bool = False,  # Use predefined AidWear mapping
         use_revalexo_mapping: bool = False,  # Use predefined RevalExo mapping
         use_direct_mapping: bool = False,   # Use columns 0-11 directly
         dataset_type: Optional[str] = None  # Alternative: specify dataset type
@@ -374,23 +372,10 @@ class EVI_MAE_IMUTransform(nn.Module):
 
         # Determine dataset type from parameters
         if dataset_type:
-            use_aidwear_mapping = dataset_type.lower() == 'aidwear'
             use_revalexo_mapping = dataset_type.lower() == 'revalexo'
             use_direct_mapping = dataset_type.lower() == 'direct'
 
-        # For AidWear dataset, use predefined mapping based on the column structure
-        if use_aidwear_mapping:
-            # Based on the column order provided:
-            # acc columns are indices 0-50 (17 body parts × 3 axes)
-            # We want: Left_Hand (30-32), Right_Hand (18-20), Left_Foot (48-50), Right_Foot (39-41)
-            channel_mapping = {
-                'left_arm': [30, 31, 32],    # acc_Left_Hand_X/Y/Z
-                'right_arm': [18, 19, 20],   # acc_Right_Hand_X/Y/Z
-                'left_leg': [48, 49, 50],    # acc_Left_Foot_X/Y/Z
-                'right_leg': [39, 40, 41]    # acc_Right_Foot_X/Y/Z
-            }
-            print(f"Using AidWear channel mapping: {channel_mapping}")
-        elif use_revalexo_mapping:
+        if use_revalexo_mapping:
             # RevalExo dataset has lower body sensors only
             # Map to EVI-MAE's 4-limb structure using available sensors:
             # - left_arm -> Left_Lower_Leg acc (proxy for left side)
@@ -470,36 +455,3 @@ class EVI_MAE_IMUTransform(nn.Module):
             spectrograms = spectrograms.reshape(batch_size, 12, self.target_height, self.target_length)
 
         return spectrograms
-
-
-# Helper function to get AidWear column names
-def get_aidwear_column_names() -> List[str]:
-    """Return the standard AidWear IMU column names in order."""
-    body_parts = [
-        'Pelvis', 'T8', 'Head',
-        'Right_Shoulder', 'Right_Upper_Arm', 'Right_Forearm', 'Right_Hand',
-        'Left_Shoulder', 'Left_Upper_Arm', 'Left_Forearm', 'Left_Hand',
-        'Right_Upper_Leg', 'Right_Lower_Leg', 'Right_Foot',
-        'Left_Upper_Leg', 'Left_Lower_Leg', 'Left_Foot'
-    ]
-    
-    columns = []
-    # Accelerometer columns
-    for part in body_parts:
-        for axis in ['X', 'Y', 'Z']:
-            columns.append(f'acc_{part}_{axis}')
-    
-    # Gyroscope columns
-    for part in body_parts:
-        for axis in ['X', 'Y', 'Z']:
-            columns.append(f'gyro_{part}_{axis}')
-    
-    # Magnetometer columns
-    for part in body_parts:
-        for axis in ['X', 'Y', 'Z']:
-            columns.append(f'mag_{part}_{axis}')
-    
-    # Additional columns
-    columns.extend(['timestamp', 'time_from_start_s'])
-    
-    return columns

@@ -1,7 +1,6 @@
 # models/mobileone_image.py
 """
 MobileOne-S0 encoder for image data, matching KIFNET's implementation
-Adapted to work with AidWear codebase structure
 """
 
 import torch

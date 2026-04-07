@@ -146,16 +146,17 @@ class MultimodalSensorDataset(Dataset):
 
     def _update_random_state(self):
         """Update the random state based on base_seed and current epoch."""
-        # Split-based could be overkill
-        combined_seed = int(hashlib.md5(
-            f"{self.base_seed}_{self.epoch}_{self.split}".encode()
-        ).hexdigest()[:8], 16)
+        # Create a unique seed combining base_seed, epoch, and split
+        # Use hash to ensure different splits have different sequences
+        split_hash = int(hashlib.md5(self.split.encode()).hexdigest()[:8], 16) % 10000
+        combined_seed = self.base_seed + self.epoch * 1000 + split_hash
 
+        # Set seeds for local random generators
         self.rng.seed(combined_seed)
         self.np_rng.seed(combined_seed)
 
         if self.debug_mode:
-            print(f"[{self.split}] Random state updated - Epoch: {self.epoch}, Seed: {combined_seed}")
+            print(f"[{self.split}] Random state updated - Epoch: {self.epoch}, Combined seed: {combined_seed}")
         
     def set_epoch(self, epoch: int):
         """
@@ -378,7 +379,7 @@ class MultimodalSensorDataset(Dataset):
         data_pairs_folder = os.path.join(self.root_path, self.config["data_pairs_folder"])
         
         # Iterate through data pair files
-        for filename in os.listdir(data_pairs_folder):
+        for filename in sorted(os.listdir(data_pairs_folder)):
             if filename.endswith('.json'):
                 data_pairs_path = os.path.join(data_pairs_folder, filename)
                 
@@ -712,56 +713,86 @@ class MultimodalSensorDataset(Dataset):
 
     def _load_imu_data(self, imu_path, start_time, end_time):
         """
-        Load IMU temporal window from CSV given start and end time
+        Load IMU temporal window from CSV given start and end time.
+
+        Uses index-based slicing by default (identical to original behavior for ~60Hz data).
+        If the actual sample count is significantly different from expected (e.g. 100Hz data
+        when config says 60Hz), falls back to timestamp-based slicing + interpolation resampling.
         """
         try:
-            # Read the CSV file
             df = pd.read_csv(imu_path)
-            
+
+            # Extract timestamps before filtering to sensor columns
+            has_timestamps = "time_from_start_s" in df.columns
+            if has_timestamps:
+                timestamps = df["time_from_start_s"].values
+
             # Get relevant columns based on patterns
             column_patterns = self.config["modalities"]["raw_imu"]["column_patterns"]
             relevant_columns = []
-            
+
             for pattern in column_patterns:
                 pattern_regex = re.compile(pattern.replace("*", ".*"))
                 for col in df.columns:
                     if pattern_regex.fullmatch(col):
                         relevant_columns.append(col)
-            
-            # If we have relevant columns, keep only those
+
             if relevant_columns:
                 df = df[relevant_columns]
-            
-            # Check for NaNs before filling
-            has_nans_before = df.isna().any().any()
-            if has_nans_before:
-                # Fill NaNs with zeros
+
+            if df.isna().any().any():
                 df = df.fillna(0)
-                
-            # Get sampling rate from config
+
             sampling_rate = self.config["modalities"]["raw_imu"]["sampling_rate"]
-            
-            # Calculate start and end indices
-            start_idx = int(start_time * sampling_rate)
-            end_idx = int(end_time * sampling_rate)
-            
-            # Ensure indices are within bounds
-            start_idx = max(0, start_idx)
-            end_idx = min(len(df), end_idx)
-            
-            # Extract the data window
-            df_window = df.iloc[start_idx:end_idx]
-            
-            # Convert to numpy array
-            imu_data = df_window.values.astype(np.float32)
-            
-            return imu_data
-        
+            expected_window_samples = int((end_time - start_time) * sampling_rate)
+
+            # Detect actual sampling rate from timestamps to decide slicing method
+            needs_resample = False
+            if has_timestamps and len(timestamps) > 1:
+                actual_rate = (len(timestamps) - 1) / (timestamps[-1] - timestamps[0])
+                if abs(actual_rate - sampling_rate) > 2.0:
+                    needs_resample = True
+
+            if needs_resample:
+                # Far from config rate (e.g. 100Hz vs 60Hz): timestamp-based slicing + interpolation
+                start_idx = int(np.searchsorted(timestamps, start_time, side="left"))
+                end_idx = int(np.searchsorted(timestamps, end_time, side="left"))
+                start_idx = max(0, start_idx)
+                end_idx = min(len(df), end_idx)
+                window_data = df.iloc[start_idx:end_idx].values.astype(np.float32)
+                actual_count = len(window_data)
+
+                if actual_count > 1:
+                    from scipy.interpolate import interp1d
+                    src_times = np.linspace(start_time, end_time, actual_count)
+                    tgt_times = np.linspace(start_time, end_time, expected_window_samples)
+                    interpolator = interp1d(src_times, window_data, axis=0, kind='linear')
+                    window_data = interpolator(tgt_times).astype(np.float32)
+            else:
+                # Close to config rate (within ±2Hz): index-based slicing
+                start_idx = int(start_time * sampling_rate)
+                end_idx = int(end_time * sampling_rate)
+                start_idx = max(0, start_idx)
+                end_idx = min(len(df), end_idx)
+                window_data = df.iloc[start_idx:end_idx].values.astype(np.float32)
+                actual_count = len(window_data)
+
+                # Extend or truncate to exactly expected_window_samples
+                if actual_count < expected_window_samples:
+                    new_end_idx = min(len(df), end_idx + (expected_window_samples - actual_count))
+                    window_data = df.iloc[start_idx:new_end_idx].values.astype(np.float32)
+                elif actual_count > expected_window_samples:
+                    window_data = window_data[:expected_window_samples]
+
+            return window_data
+
         except Exception as e:
             print(f"Error loading IMU data from {imu_path}: {e}")
+            import traceback
+            traceback.print_exc()
             sampling_rate = self.config["modalities"]["raw_imu"]["sampling_rate"]
-            dummy_shape = (int(self.window_size * sampling_rate), len(relevant_columns) if relevant_columns else 1)
-            # TODO: Determine how to handle loading errors
+            num_channels = len(relevant_columns) if relevant_columns else 1
+            dummy_shape = (int(self.window_size * sampling_rate), num_channels)
             return np.zeros(dummy_shape, dtype=np.float32)
 
     def load_single_frame(self, frame_path):

@@ -398,45 +398,100 @@ def setup_datasets_and_loaders(config: Dict[str, Any], distributed: bool = False
     val_sample_multiplier = sample_multipliers.get('validation', 1)
     test_sample_multiplier = sample_multipliers.get('test', 1)
 
-    # Create datasets with the MERGED config dictionary (not path!)
-    train_dataset = dataset_class(
-        dataset_config=dataset_config,  # Pass the merged config dict
-        modalities=modalities,
-        window_size=window_size,
-        video_model_frame_size=video_model_frame_size,
-        subjects=train_subjects,
-        split='train',
-        transforms=train_transforms,
-        sample_multiplier=train_sample_multiplier,
-        use_frames=use_frames,
-        exclude_background=exclude_background,
-        background_class_value=background_class_value,
-        prediction_horizons=prediction_horizons,
-        eval_stride=eval_stride,
-        clip_stride=clip_stride,
-        base_seed=base_seed
-    )
-    
-    val_dataset = dataset_class(
-        dataset_config=dataset_config,  # Pass the merged config dict
-        modalities=modalities,
-        window_size=window_size,
-        video_model_frame_size=video_model_frame_size,
-        subjects=val_subjects,
-        split='val',
-        transforms=eval_transforms,
-        sample_multiplier=val_sample_multiplier,
-        use_frames=use_frames,
-        exclude_background=exclude_background,
-        background_class_value=background_class_value,
-        prediction_horizons=prediction_horizons,
-        eval_stride=eval_stride,
-        clip_stride=clip_stride,
-        base_seed=base_seed
-    )
-    
+    # Check if we need to split training data for validation
+    val_split_ratio = config.get('dataset', {}).get('val_split_ratio', 0.0)
+    if val_split_ratio > 0 and not val_subjects:
+        val_subjects = train_subjects
+
+    if val_split_ratio > 0 and set(val_subjects) == set(train_subjects):
+        # LOSO mode: split training subjects' clips into train/val
+        print(f"LOSO validation split: {val_split_ratio:.0%} of training clips held out for validation")
+
+        # Common dataset kwargs
+        common_kwargs = dict(
+            dataset_config=dataset_config,
+            modalities=modalities,
+            window_size=window_size,
+            video_model_frame_size=video_model_frame_size,
+            subjects=train_subjects,
+            use_frames=use_frames,
+            exclude_background=exclude_background,
+            background_class_value=background_class_value,
+            prediction_horizons=prediction_horizons,
+            eval_stride=eval_stride,
+            clip_stride=clip_stride,
+            base_seed=base_seed
+        )
+
+        # Create a reference dataset to get the canonical sample list
+        ref_dataset = dataset_class(split='train', transforms=None, sample_multiplier=1, **common_kwargs)
+        all_samples = ref_dataset.samples
+
+        # Deterministic clip-level split
+        n_clips = len(all_samples)
+        indices = list(range(n_clips))
+        rng = random.Random(base_seed)
+        rng.shuffle(indices)
+        split_point = int((1.0 - val_split_ratio) * n_clips)
+        train_clip_indices = sorted(indices[:split_point])
+        val_clip_indices = sorted(indices[split_point:])
+
+        print(f"  Total clips: {n_clips}, Train clips: {len(train_clip_indices)}, Val clips: {len(val_clip_indices)}")
+
+        # Create train dataset (split='train' -> random windowing + train transforms)
+        train_dataset = dataset_class(
+            split='train', transforms=train_transforms, sample_multiplier=train_sample_multiplier, **common_kwargs
+        )
+        train_dataset.samples = [all_samples[i] for i in train_clip_indices]
+
+        # Create val dataset (split='val' -> deterministic grid eval + eval transforms)
+        val_dataset = dataset_class(
+            split='val', transforms=eval_transforms, sample_multiplier=val_sample_multiplier, **common_kwargs
+        )
+        val_dataset.samples = [all_samples[i] for i in val_clip_indices]
+
+        del ref_dataset  # Free memory
+    else:
+        # Standard mode: separate subject lists for train/val
+        train_dataset = dataset_class(
+            dataset_config=dataset_config,
+            modalities=modalities,
+            window_size=window_size,
+            video_model_frame_size=video_model_frame_size,
+            subjects=train_subjects,
+            split='train',
+            transforms=train_transforms,
+            sample_multiplier=train_sample_multiplier,
+            use_frames=use_frames,
+            exclude_background=exclude_background,
+            background_class_value=background_class_value,
+            prediction_horizons=prediction_horizons,
+            eval_stride=eval_stride,
+            clip_stride=clip_stride,
+            base_seed=base_seed
+        )
+
+        val_dataset = dataset_class(
+            dataset_config=dataset_config,
+            modalities=modalities,
+            window_size=window_size,
+            video_model_frame_size=video_model_frame_size,
+            subjects=val_subjects,
+            split='val',
+            transforms=eval_transforms,
+            sample_multiplier=val_sample_multiplier,
+            use_frames=use_frames,
+            exclude_background=exclude_background,
+            background_class_value=background_class_value,
+            prediction_horizons=prediction_horizons,
+            eval_stride=eval_stride,
+            clip_stride=clip_stride,
+            base_seed=base_seed
+        )
+
+    # Test dataset is always created from test subjects
     test_dataset = dataset_class(
-        dataset_config=dataset_config,  # Pass the merged config dict
+        dataset_config=dataset_config,
         modalities=modalities,
         window_size=window_size,
         video_model_frame_size=video_model_frame_size,
@@ -527,7 +582,7 @@ def setup_datasets_and_loaders(config: Dict[str, Any], distributed: bool = False
                     dataset=train_dataset,
                     num_replicas=world_size,
                     rank=rank,
-                    shuffle=True,  # Enable torch.multinomial weighted sampling
+                    shuffle=shuffle,  # sampler option is mutually exclusive with shuffle
                     weights=sample_weights,
                     seed=base_seed
                 )
@@ -584,6 +639,11 @@ def setup_datasets_and_loaders(config: Dict[str, Any], distributed: bool = False
         worker_seed = base_seed + worker_id
         np.random.seed(worker_seed)
         random.seed(worker_seed)
+        torch.manual_seed(worker_seed)
+
+    # Create a seeded generator for DataLoader shuffling
+    g = torch.Generator()
+    g.manual_seed(base_seed)
 
     # Create data loaders
     train_loader = DataLoader(
@@ -596,9 +656,10 @@ def setup_datasets_and_loaders(config: Dict[str, Any], distributed: bool = False
         prefetch_factor=train_loader_config.get('prefetch_factor', 2) if train_loader_config.get('num_workers', 4) > 0 else None,
         drop_last=True,
         collate_fn=collate_fn,
-        worker_init_fn=worker_init_fn
+        worker_init_fn=worker_init_fn,
+        generator=g
     )
-    
+
     val_loader = DataLoader(
         val_dataset,
         batch_size=val_loader_config.get('batch_size', 8),
@@ -608,9 +669,10 @@ def setup_datasets_and_loaders(config: Dict[str, Any], distributed: bool = False
         sampler=val_sampler,
         drop_last=False,
         collate_fn=collate_fn,
-        worker_init_fn=worker_init_fn
+        worker_init_fn=worker_init_fn,
+        generator=g
     )
-    
+
     test_loader = DataLoader(
         test_dataset,
         batch_size=test_loader_config.get('batch_size', 8),
@@ -620,9 +682,10 @@ def setup_datasets_and_loaders(config: Dict[str, Any], distributed: bool = False
         sampler=test_sampler,
         drop_last=False,
         collate_fn=collate_fn,
-        worker_init_fn=worker_init_fn
+        worker_init_fn=worker_init_fn,
+        generator=g
     )
-    
+
     return {
         'train_dataset': train_dataset,
         'val_dataset': val_dataset,

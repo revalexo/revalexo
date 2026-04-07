@@ -5,6 +5,7 @@
 dataset:
   name: "RevalExoDataset"
   config_path: "configs/datasets/revalexodataset.yaml"
+  val_split_ratio: 0.2
   window_size: 2.0
   prediction_horizons: [0, 0.1, 0.2, 0.3, 0.5, 1]
 
@@ -26,7 +27,7 @@ dataset:
   # Cross-population split: Healthy (train) -> Stroke (val/test)
   splits:
     train_subjects: ["Subject01", "Subject02", "Subject03", "Subject11", "Subject20", "Subject24", "Subject29"]
-    val_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject17", "Subject26"]
+    # val_subjects: uses train_subjects split by val_split_ratio
     test_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject17", "Subject26"]
 
   # Sample multiplier configuration
@@ -51,6 +52,8 @@ modalities:
     use_end_frame: true
 
     train_transforms:
+      - name: "DivideBy255"
+        params: {}
       - name: "NormalizeImage"
         params:
           mean: [0.485, 0.456, 0.406]
@@ -68,6 +71,8 @@ modalities:
           p: 0.5
 
     eval_transforms:
+      - name: "DivideBy255"
+        params: {}
       - name: "NormalizeImage"
         params:
           mean: [0.485, 0.456, 0.406]

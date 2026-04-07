@@ -33,7 +33,9 @@ def parse_args():
                         help='Subjects to skip in cross-validation')
     parser.add_argument('--transition-window', type=float, default=0.5,
                         help='Transition window size in seconds (passed to train.py)')
-    
+    parser.add_argument('--no-deterministic', action='store_true',
+                        help='Disable deterministic mode (deterministic is on by default)')
+
     return parser.parse_args()
 
 def load_config(config_path: str) -> Dict[str, Any]:
@@ -75,8 +77,8 @@ def create_loso_config(config: Dict[str, Any], test_subject: str, output_dir: st
     # Create training set (all subjects except the test subject)
     train_subjects = [s for s in all_subjects if s != test_subject]
     
-    # Use the same subject for validation and testing
-    val_subjects = [test_subject]
+    # Validation uses train subjects (split by val_split_ratio in data_utils)
+    val_subjects = train_subjects
     test_subjects = [test_subject]
     
     # Update the splits in the config
@@ -101,13 +103,14 @@ def create_loso_config(config: Dict[str, Any], test_subject: str, output_dir: st
     
     return loso_config, config_path
 
-def run_training(config_path: str, gpu_id: int, transition_window: float, dry_run: bool = False) -> bool:
+def run_training(config_path: str, gpu_id: int, transition_window: float, dry_run: bool = False, deterministic: bool = True) -> bool:
     """Run the training script with the specified config."""
     cmd = [
         "python3", "train.py",
         "--config", config_path,
         "--transition-window", str(transition_window),
         "--no-cuda" if gpu_id < 0 else "",
+        "" if deterministic else "--no-deterministic",
     ]
     
     # Add CUDA_VISIBLE_DEVICES if GPU is specified
@@ -449,7 +452,7 @@ def main():
             _, config_path = create_loso_config(config, subject, output_dir)
             
             # Run training
-            success = run_training(config_path, args.gpu, args.transition_window, args.dry_run)
+            success = run_training(config_path, args.gpu, args.transition_window, args.dry_run, deterministic=not args.no_deterministic)
             
             if success:
                 completed.append(subject)

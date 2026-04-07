@@ -5,7 +5,7 @@ Extracts metrics directly from best_model_metrics*.csv files for each horizon
 
 Usage:
 python3 analyze_loso_results.py \
-    --base-dir outputs/loso/aidwear \
+    --base-dir outputs/loso/revalexo \
     --output-dir analysis_results
 """
 
@@ -89,8 +89,9 @@ class EnhancedLOSOAnalyzer:
                     
                 run_dir = run_dirs[0]  # Take the first (and usually only) run
                 
-                # Extract metrics from each horizon
-                horizon_dirs = sorted([d for d in run_dir.iterdir() if d.is_dir() and d.name.startswith('horizon_')])
+                # Extract metrics from test horizon directories
+                test_dir = run_dir / 'test'
+                horizon_dirs = sorted([d for d in test_dir.iterdir() if d.is_dir() and d.name.startswith('horizon_')]) if test_dir.exists() else []
                 
                 for horizon_dir in horizon_dirs:
                     horizon = horizon_dir.name.replace('horizon_', '')
@@ -1867,7 +1868,7 @@ class EnhancedLOSOAnalyzer:
 
 def main():
     parser = argparse.ArgumentParser(description='Enhanced LOSO cross-validation results analyzer')
-    parser.add_argument('--base-dir', type=str, default='outputs/loso/aidwear',
+    parser.add_argument('--base-dir', type=str, default='outputs/loso/revalexo',
                        help='Base directory containing LOSO results')
     parser.add_argument('--output-dir', type=str, default='analysis_results_v3',
                        help='Output directory for analysis results')

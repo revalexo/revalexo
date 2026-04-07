@@ -1668,8 +1668,8 @@ def save_checkpoint(checkpoint_dir: str, model: nn.Module, optimizer: torch.opti
         horizon_time = horizon_values[h]
         horizon_str = f"{horizon_time:.1f}s"
 
-        # Create horizon-specific directory
-        horizon_dir = os.path.join(checkpoint_dir, f"horizon_{horizon_str}")
+        # Create horizon-specific directory under val/
+        horizon_dir = os.path.join(checkpoint_dir, "val", f"horizon_{horizon_str}")
         os.makedirs(horizon_dir, exist_ok=True)
 
         for category in categories:
@@ -1680,6 +1680,12 @@ def save_checkpoint(checkpoint_dir: str, model: nn.Module, optimizer: torch.opti
             classreport_key = f'{category_prefix}classificationreport_dataframe{h_suffix}'
             if classreport_key in metrics:
                 try:
+                    # Clean up old epoch-specific reports before saving new one
+                    import glob as glob_module
+                    old_reports = glob_module.glob(os.path.join(horizon_dir, f'metrics_report{category_suffix}_epoch_*.csv'))
+                    for old_report in old_reports:
+                        os.remove(old_report)
+
                     # Save epoch-specific file
                     csv_filename = f'metrics_report{category_suffix}_epoch_{epoch}.csv'
                     csv_path = os.path.join(horizon_dir, csv_filename)
@@ -1726,7 +1732,7 @@ def save_checkpoint(checkpoint_dir: str, model: nn.Module, optimizer: torch.opti
             for h in range(num_horizons):
                 horizon_time = horizon_values[h]
                 horizon_str = f"{horizon_time:.1f}s"
-                horizon_dir = os.path.join(checkpoint_dir, f"horizon_{horizon_str}")
+                horizon_dir = os.path.join(checkpoint_dir, "val", f"horizon_{horizon_str}")
 
                 if os.path.exists(horizon_dir):
                     for category in categories:

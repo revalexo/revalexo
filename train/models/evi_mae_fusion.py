@@ -1100,7 +1100,7 @@ class EVI_MAE_Encoder(BaseEncoder):
 
 class EVI_MAE_Fusion(nn.Module):
     """
-    EVI-MAE Fusion model following AidWear codebase structure.
+    EVI-MAE Fusion model following RevalExo codebase structure.
     Uses EVI_MAE_Encoder with MultiHorizonClassifier.
     """
     def __init__(
