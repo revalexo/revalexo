@@ -27,12 +27,13 @@ class TrainOnlyAnalyzer:
     """Analyzer for train-only results (no cross-validation)."""
 
     def __init__(self, base_dir: str, output_dir: str, filter_pattern: str = None,
-                 create_subject_reports: bool = True):
+                 create_subject_reports: bool = True, skip_incomplete: bool = False):
         self.base_dir = Path(base_dir)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.filter_pattern = filter_pattern
         self.create_subject_reports = create_subject_reports
+        self.skip_incomplete = skip_incomplete
 
         # Storage for metrics
         self.metrics_data = defaultdict(lambda: defaultdict(dict))
@@ -75,13 +76,19 @@ class TrainOnlyAnalyzer:
             latest_timestamp = max(timestamp_dirs, key=lambda x: x.name)
             print(f"  Using timestamp: {latest_timestamp.name}")
             
-            self.model_names.append(model_name)
-            
-            # Extract metrics from test horizon directories
+            # Check for test results (incomplete run = no test/ directory)
             test_dir = latest_timestamp / 'test'
+            if not test_dir.exists():
+                if self.skip_incomplete:
+                    print(f"  Skipping {model_name} (no test results, incomplete run)")
+                    continue
+
+            self.model_names.append(model_name)
+
+            # Extract metrics from test horizon directories
             horizon_dirs = sorted([d for d in test_dir.iterdir()
                                  if d.is_dir() and d.name.startswith('horizon_')]) if test_dir.exists() else []
-            
+
             print(f"  Found {len(horizon_dirs)} horizons")
             
             for horizon_dir in horizon_dirs:
@@ -2215,6 +2222,8 @@ def main():
                        help='Filter model directories by glob pattern (e.g., "deepconvlstm*")')
     parser.add_argument('--no-subject-reports', action='store_true',
                        help='Skip creating individual subject reports')
+    parser.add_argument('--skip-incomplete', action='store_true',
+                       help='Skip models/runs without test results')
 
     args = parser.parse_args()
 
@@ -2223,7 +2232,8 @@ def main():
         args.base_dir,
         args.output_dir,
         filter_pattern=args.filter,
-        create_subject_reports=not args.no_subject_reports
+        create_subject_reports=not args.no_subject_reports,
+        skip_incomplete=args.skip_incomplete
     )
     
     # Extract metrics

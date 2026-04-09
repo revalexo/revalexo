@@ -25,11 +25,12 @@ import re
 class EnhancedLOSOAnalyzer:
     """Enhanced analyzer for LOSO cross-validation results."""
     
-    def __init__(self, base_dir: str, output_dir: str, create_subject_reports: bool = True):
+    def __init__(self, base_dir: str, output_dir: str, create_subject_reports: bool = True, skip_incomplete: bool = False):
         self.base_dir = Path(base_dir)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.create_subject_reports = create_subject_reports
+        self.skip_incomplete = skip_incomplete
         
         # Storage for metrics
         self.metrics_data = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -78,19 +79,29 @@ class EnhancedLOSOAnalyzer:
 
             self.model_names.append(model_name)
             
+            skipped_subjects = []
             for subject_dir in subject_dirs:
                 subject_id = subject_dir.name.replace('subject_', '')
-                self.subjects.add(subject_id)
-                
+
                 # Find the run directory (there should be one per subject)
                 run_dirs = [d for d in subject_dir.iterdir() if d.is_dir()]
                 if not run_dirs:
+                    if self.skip_incomplete:
+                        skipped_subjects.append(subject_id)
                     continue
-                    
+
                 run_dir = run_dirs[0]  # Take the first (and usually only) run
-                
-                # Extract metrics from test horizon directories
+
+                # Check for test results (incomplete run = no test/ directory)
                 test_dir = run_dir / 'test'
+                if not test_dir.exists():
+                    if self.skip_incomplete:
+                        skipped_subjects.append(subject_id)
+                        continue
+
+                self.subjects.add(subject_id)
+
+                # Extract metrics from test horizon directories
                 horizon_dirs = sorted([d for d in test_dir.iterdir() if d.is_dir() and d.name.startswith('horizon_')]) if test_dir.exists() else []
                 
                 for horizon_dir in horizon_dirs:
@@ -127,6 +138,9 @@ class EnhancedLOSOAnalyzer:
                 history_log = run_dir / 'history.log'
                 if history_log.exists():
                     self.extract_loss_curves(history_log, model_name, subject_id)
+
+            if skipped_subjects:
+                print(f"  Skipped {len(skipped_subjects)} incomplete subjects: {sorted(skipped_subjects)}")
         
         # Sort horizons for consistent ordering
         self.horizons = sorted(self.horizons, key=lambda x: float(x.replace('s', '')))
@@ -1874,14 +1888,17 @@ def main():
                        help='Output directory for analysis results')
     parser.add_argument('--no-subject-reports', action='store_true',
                        help='Skip creating individual subject reports')
-    
+    parser.add_argument('--skip-incomplete', action='store_true',
+                       help='Skip subjects/runs without test results')
+
     args = parser.parse_args()
-    
+
     # Create analyzer and run analysis
     analyzer = EnhancedLOSOAnalyzer(
-        args.base_dir, 
+        args.base_dir,
         args.output_dir,
-        create_subject_reports=not args.no_subject_reports
+        create_subject_reports=not args.no_subject_reports,
+        skip_incomplete=args.skip_incomplete
     )
     
     # Extract metrics
