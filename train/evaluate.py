@@ -116,8 +116,8 @@ def setup_output_directory(args: argparse.Namespace, config: Dict[str, Any]) -> 
     if args.output_dir is not None:
         output_dir = args.output_dir
     else:
-        # Create eval folder next to checkpoint
-        checkpoint_dir = os.path.dirname(os.path.abspath(args.checkpoint))
+        # Use config's log_dir as base output path
+        base_dir = config.get('logging', {}).get('log_dir', 'outputs/eval')
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         if args.eval_name:
@@ -133,7 +133,7 @@ def setup_output_directory(args: argparse.Namespace, config: Dict[str, Any]) -> 
                 subjects_str = "test"
             folder_name = f"eval_{timestamp}_{subjects_str}"
 
-        output_dir = os.path.join(checkpoint_dir, folder_name)
+        output_dir = os.path.join(base_dir, folder_name)
 
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
