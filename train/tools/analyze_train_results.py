@@ -27,13 +27,15 @@ class TrainOnlyAnalyzer:
     """Analyzer for train-only results (no cross-validation)."""
 
     def __init__(self, base_dir: str, output_dir: str, filter_pattern: str = None,
-                 create_subject_reports: bool = True, skip_incomplete: bool = False):
+                 create_subject_reports: bool = True, skip_incomplete: bool = False,
+                 include_frozen: bool = False):
         self.base_dir = Path(base_dir)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.filter_pattern = filter_pattern
         self.create_subject_reports = create_subject_reports
         self.skip_incomplete = skip_incomplete
+        self.include_frozen = include_frozen
 
         # Storage for metrics
         self.metrics_data = defaultdict(lambda: defaultdict(dict))
@@ -54,8 +56,18 @@ class TrainOnlyAnalyzer:
         """Scan directory structure and extract metrics from CSV files."""
         print("Scanning for model results...")
 
-        # Find all model directories
-        model_dirs = [d for d in self.base_dir.iterdir() if d.is_dir()]
+        # Find all model directories (exclude output dir to avoid recursion)
+        model_dirs = []
+        for d in self.base_dir.iterdir():
+            if not d.is_dir() or d.resolve() == self.output_dir.resolve():
+                continue
+            if d.name == 'frozen' and self.include_frozen:
+                # Expand frozen/ submodels as separate models (e.g., frozen/resnet18_linear_probe)
+                for sub in d.iterdir():
+                    if sub.is_dir():
+                        model_dirs.append(sub)
+            else:
+                model_dirs.append(d)
 
         # Apply filter if specified
         if self.filter_pattern:
@@ -2224,6 +2236,8 @@ def main():
                        help='Skip creating individual subject reports')
     parser.add_argument('--skip-incomplete', action='store_true',
                        help='Skip models/runs without test results')
+    parser.add_argument('--include-frozen', action='store_true',
+                       help='Include frozen/ submodels as separate models')
 
     args = parser.parse_args()
 
@@ -2233,7 +2247,8 @@ def main():
         args.output_dir,
         filter_pattern=args.filter,
         create_subject_reports=not args.no_subject_reports,
-        skip_incomplete=args.skip_incomplete
+        skip_incomplete=args.skip_incomplete,
+        include_frozen=args.include_frozen
     )
     
     # Extract metrics

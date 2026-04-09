@@ -25,12 +25,14 @@ import re
 class EnhancedLOSOAnalyzer:
     """Enhanced analyzer for LOSO cross-validation results."""
     
-    def __init__(self, base_dir: str, output_dir: str, create_subject_reports: bool = True, skip_incomplete: bool = False):
+    def __init__(self, base_dir: str, output_dir: str, create_subject_reports: bool = True,
+                 skip_incomplete: bool = False, include_frozen: bool = False):
         self.base_dir = Path(base_dir)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.create_subject_reports = create_subject_reports
         self.skip_incomplete = skip_incomplete
+        self.include_frozen = include_frozen
         
         # Storage for metrics
         self.metrics_data = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
@@ -52,8 +54,16 @@ class EnhancedLOSOAnalyzer:
         print("Scanning for model results...")
         
         # Find all model directories (exclude output directory if it's inside base_dir)
-        model_dirs = [d for d in self.base_dir.iterdir()
-                      if d.is_dir() and d.resolve() != self.output_dir.resolve()]
+        model_dirs = []
+        for d in self.base_dir.iterdir():
+            if not d.is_dir() or d.resolve() == self.output_dir.resolve():
+                continue
+            if d.name == 'frozen' and self.include_frozen:
+                for sub in d.iterdir():
+                    if sub.is_dir():
+                        model_dirs.append(sub)
+            else:
+                model_dirs.append(d)
         
         for model_dir in model_dirs:
             model_name = model_dir.name
@@ -70,39 +80,66 @@ class EnhancedLOSOAnalyzer:
             
             # Find all subject directories
             subject_dirs = [d for d in latest_timestamp.iterdir() if d.is_dir() and d.name.startswith('subject_')]
-            print(f"  Found {len(subject_dirs)} subjects")
+            print(f"  Found {len(subject_dirs)} subject directories")
 
             # Skip models with 0 subjects
             if len(subject_dirs) == 0:
                 print(f"  Skipping {model_name} (no subjects)")
                 continue
 
+            # Check completeness: compare expected subjects (from metadata) vs completed
+            if self.skip_incomplete:
+                expected_subjects = None
+                metadata_path = latest_timestamp / 'loso_metadata.json'
+                if metadata_path.exists():
+                    with open(metadata_path) as f:
+                        metadata = json.load(f)
+                    expected_subjects = set(metadata.get('subjects', []))
+
+                # Find completed subjects (those with test/ results)
+                completed_subjects = set()
+                for sd in subject_dirs:
+                    sid = sd.name.replace('subject_', '')
+                    run_dirs = [d for d in sd.iterdir() if d.is_dir()]
+                    if run_dirs:
+                        test_dir = run_dirs[0] / 'test'
+                        if test_dir.exists():
+                            completed_subjects.add(sid)
+
+                if expected_subjects is not None:
+                    missing = expected_subjects - completed_subjects
+                    if missing:
+                        print(f"  Skipping {model_name} (incomplete: {len(missing)}/{len(expected_subjects)} subjects missing test results: {sorted(missing)})")
+                        continue
+                    print(f"  All {len(expected_subjects)} subjects completed")
+                else:
+                    # No metadata — fall back to checking if any subject lacks test results
+                    found_subjects = {sd.name.replace('subject_', '') for sd in subject_dirs}
+                    missing = found_subjects - completed_subjects
+                    if missing:
+                        print(f"  Skipping {model_name} (incomplete: {sorted(missing)} missing test results)")
+                        continue
+
             self.model_names.append(model_name)
-            
-            skipped_subjects = []
+
             for subject_dir in subject_dirs:
                 subject_id = subject_dir.name.replace('subject_', '')
 
                 # Find the run directory (there should be one per subject)
                 run_dirs = [d for d in subject_dir.iterdir() if d.is_dir()]
                 if not run_dirs:
-                    if self.skip_incomplete:
-                        skipped_subjects.append(subject_id)
                     continue
 
                 run_dir = run_dirs[0]  # Take the first (and usually only) run
 
-                # Check for test results (incomplete run = no test/ directory)
+                # Extract metrics from test horizon directories
                 test_dir = run_dir / 'test'
                 if not test_dir.exists():
-                    if self.skip_incomplete:
-                        skipped_subjects.append(subject_id)
-                        continue
+                    continue
 
                 self.subjects.add(subject_id)
 
-                # Extract metrics from test horizon directories
-                horizon_dirs = sorted([d for d in test_dir.iterdir() if d.is_dir() and d.name.startswith('horizon_')]) if test_dir.exists() else []
+                horizon_dirs = sorted([d for d in test_dir.iterdir() if d.is_dir() and d.name.startswith('horizon_')])
                 
                 for horizon_dir in horizon_dirs:
                     horizon = horizon_dir.name.replace('horizon_', '')
@@ -139,9 +176,6 @@ class EnhancedLOSOAnalyzer:
                 if history_log.exists():
                     self.extract_loss_curves(history_log, model_name, subject_id)
 
-            if skipped_subjects:
-                print(f"  Skipped {len(skipped_subjects)} incomplete subjects: {sorted(skipped_subjects)}")
-        
         # Sort horizons for consistent ordering
         self.horizons = sorted(self.horizons, key=lambda x: float(x.replace('s', '')))
         print(f"\nFound horizons: {self.horizons}")
@@ -1889,7 +1923,9 @@ def main():
     parser.add_argument('--no-subject-reports', action='store_true',
                        help='Skip creating individual subject reports')
     parser.add_argument('--skip-incomplete', action='store_true',
-                       help='Skip subjects/runs without test results')
+                       help='Skip models with incomplete LOSO runs')
+    parser.add_argument('--include-frozen', action='store_true',
+                       help='Include frozen/ submodels as separate models')
 
     args = parser.parse_args()
 
@@ -1898,7 +1934,8 @@ def main():
         args.base_dir,
         args.output_dir,
         create_subject_reports=not args.no_subject_reports,
-        skip_incomplete=args.skip_incomplete
+        skip_incomplete=args.skip_incomplete,
+        include_frozen=args.include_frozen
     )
     
     # Extract metrics
