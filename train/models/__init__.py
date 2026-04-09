@@ -25,6 +25,7 @@ except (ImportError, FileNotFoundError, OSError) as e:
 
 from .kifnet_mlp import KIFNetMLP, KIFNetMLPSeparateDecoders
 from .mobileone_image import MobileOneS0_Image
+from .dinov3_model import DINOv3_Image
 
 __all__ = [
     # Base classes
@@ -54,6 +55,8 @@ __all__ = [
     'SFTIK_Fusion',
     # MobileOne models
     'MobileOneS0_Image',
+    # DINOv3 models
+    'DINOv3_Image',
 ]
 
 if HAS_DGL:
