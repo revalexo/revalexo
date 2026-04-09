@@ -142,5 +142,5 @@ metrics:
 # Logging configuration
 logging:
   tensorboard: true
-  log_dir: "outputs/train/revalexo_healthy_stroke_cross_modality_all_subjects/deepconvlstm_acc_gyro_contrastive_pretrained"
+  log_dir: "outputs/train/revalexo_healthy_stroke_cross_modality/deepconvlstm_acc_gyro_contrastive_pretrained"
   log_frequency: 50

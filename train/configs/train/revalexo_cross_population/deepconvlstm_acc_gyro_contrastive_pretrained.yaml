@@ -1,5 +1,6 @@
-# configs/train/revalexo_healthy_stroke_cross_modality_all_subjects/deepconvlstm_acc_gyro.yaml
-# Cross-modality: Train on Healthy (with video+IMU), Test on All Stroke (IMU-only)
+# configs/train/revalexo_cross_population/deepconvlstm_acc_gyro_contrastive_pretrained.yaml
+# Cross-population: Train on Healthy, Test on Stroke subjects
+# DeepConvLSTM with contrastively pretrained encoder
 
 # Base dataset configuration
 dataset:
@@ -24,11 +25,11 @@ dataset:
         - "gyro_*_Lower_Leg_*"
         - "gyro_*_Foot_*"
 
-  # Cross-modality split: Healthy (train) -> Stroke (val/test)
+  # Cross-population split: Healthy (train) -> Stroke (val/test)
   splits:
     train_subjects: ["Subject01", "Subject02", "Subject03", "Subject11", "Subject20", "Subject24", "Subject29"]
     # val_subjects: uses train_subjects split by val_split_ratio
-    test_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject09", "Subject12", "Subject15", "Subject17", "Subject23", "Subject26"]
+    test_subjects: ["Subject05", "Subject06", "Subject07", "Subject08", "Subject17", "Subject26"]
 
   # Sample multiplier configuration
   sample_multiplier:
@@ -51,6 +52,7 @@ modalities:
 models:
   raw_imu_model:
     name: "DeepConvLSTM"
+    pretrained_checkpoint: "pretrained/contrastive/deepconvlstm_imu_encoder.pt"
     params:
       channels: 42  # 7 lower body parts × 3 axes × 2 sensors
       window_size: 120
@@ -140,5 +142,5 @@ metrics:
 # Logging configuration
 logging:
   tensorboard: true
-  log_dir: "outputs/train/revalexo_healthy_stroke_cross_modality/deepconvlstm_acc_gyro"
+  log_dir: "outputs/train/revalexo_cross_population/deepconvlstm_acc_gyro_contrastive_pretrained"
   log_frequency: 50

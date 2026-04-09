@@ -104,20 +104,20 @@ dataloaders:
   train:
     batch_size: 8
     shuffle: true
-    num_workers: 20
-    prefetch_factor: 4
+    num_workers: 8
+    prefetch_factor: 2
     pin_memory: true
     use_balanced_sampler: true
     balancing_method: "inverse"
   validation:
     batch_size: 8
     shuffle: false
-    num_workers: 20
+    num_workers: 8
     pin_memory: true
   test:
     batch_size: 8
     shuffle: false
-    num_workers: 20
+    num_workers: 8
     pin_memory: true
 
 metrics:
