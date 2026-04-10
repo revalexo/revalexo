@@ -2,7 +2,7 @@
 
 This is the official codebase for the paper *"RevalExo: A Multimodal Dataset and Benchmark for Locomotion Mode Recognition Across Healthy and Clinical Populations"*.
 
-[[Project Page]](https://revalexo.github.io/)
+[[Project Page]](https://revalexo.github.io/) | [[Dataset]](https://rdr.kuleuven.be/dataset.xhtml?persistentId=doi:10.48804/OWJOID) | [[Training Logs]](https://huggingface.co/datasets/revalexo/train-logs/tree/main)
 
 ## Setup
 
@@ -52,7 +52,7 @@ After preparing the dataset, you can use the provided configs to run training. T
 <details>
 <summary><b>Locomotion Mode Recognition (LOSO)</b></summary>
 
-Leave-one-subject-out cross-validation on the 13 subjects with synchronized IMU and egocentric video. Run using `loso_multi_horizon.py` with the desired config:
+Leave-one-subject-out cross-validation on the 13 subjects with synchronized IMU and egocentric video. Run using `loso_multi_horizon.py`:
 
 ```bash
 python loso_multi_horizon.py --base-config configs/loso/revalexo/deepconvlstm_acc_gyro.yaml
@@ -161,6 +161,61 @@ python train.py --config configs/train/revalexo_cross_population/evi_mae_fusion.
 
 </details>
 
+### Standalone Evaluation
+
+To evaluate a trained checkpoint on a (possibly different) test set:
+
+```bash
+python evaluate.py --config configs/train/revalexo_cross_population/resnet18.yaml \
+  --checkpoint outputs/train/revalexo_cross_population/resnet18/<timestamp>/best_model.pt
+```
+
+Override test subjects with `--test-subjects`:
+
+```bash
+python evaluate.py --config configs/train/revalexo_cross_population/resnet18.yaml \
+  --checkpoint path/to/best_model.pt \
+  --test-subjects Subject05 Subject06 Subject07 Subject08
+```
+
+### Analyzing Results
+
+Analyze LOSO cross-validation results:
+
+```bash
+python tools/analyze_loso_results.py \
+  --base-dir outputs/loso/revalexo \
+  --output-dir outputs/loso/revalexo/analysis \
+  --skip-incomplete --include-frozen
+```
+
+Analyze train/test split results:
+
+```bash
+python tools/analyze_train_results.py \
+  --base-dir outputs/train/revalexo_cross_population \
+  --output-dir outputs/train/revalexo_cross_population/analysis \
+  --skip-incomplete --include-frozen
+```
+
+Options:
+
+- `--skip-incomplete` skips models/subjects without completed test results
+- `--include-frozen` expands `frozen/` submodels (e.g., linear probes) as separate entries
+
+### Output Structure
+
+Training runs produce the following structure:
+
+```
+<run_dir>/
+  val/horizon_<t>s/          # Validation metrics (from 80/20 train split)
+  test/horizon_<t>s/         # Test metrics (held-out subject/population)
+  per_subject_results/       # Per-subject breakdown
+  best_model.pt              # Best checkpoint (by val metric)
+  history.log                # Training/validation loss curves
+```
+
 ### Pretrained Models
 
 The `pretrained/` directory has the following structure:
@@ -183,8 +238,6 @@ Download the pretrained checkpoints from the link below and place them in the `p
 ### Training Logs
 
 Training logs for experiments are available for reference:
-
-> [[Download Training Logs]](https://kuleuven-my.sharepoint.com/personal/diwas_lamsal_kuleuven_be/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fdiwas%5Flamsal%5Fkuleuven%5Fbe%2FDocuments%2FRevalExo%2FDataset%2Ftrain%5Flogs&ga=1)
 
 ## Citation
 
