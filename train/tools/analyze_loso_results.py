@@ -87,14 +87,9 @@ class EnhancedLOSOAnalyzer:
                 print(f"  Skipping {model_name} (no subjects)")
                 continue
 
-            # Check completeness: compare expected subjects (from metadata) vs completed
+            # Check completeness: all found subject dirs must have test/ results
             if self.skip_incomplete:
-                expected_subjects = None
-                metadata_path = latest_timestamp / 'loso_metadata.json'
-                if metadata_path.exists():
-                    with open(metadata_path) as f:
-                        metadata = json.load(f)
-                    expected_subjects = set(metadata.get('subjects', []))
+                found_subjects = {sd.name.replace('subject_', '') for sd in subject_dirs}
 
                 # Find completed subjects (those with test/ results)
                 completed_subjects = set()
@@ -106,19 +101,11 @@ class EnhancedLOSOAnalyzer:
                         if test_dir.exists():
                             completed_subjects.add(sid)
 
-                if expected_subjects is not None:
-                    missing = expected_subjects - completed_subjects
-                    if missing:
-                        print(f"  Skipping {model_name} (incomplete: {len(missing)}/{len(expected_subjects)} subjects missing test results: {sorted(missing)})")
-                        continue
-                    print(f"  All {len(expected_subjects)} subjects completed")
-                else:
-                    # No metadata — fall back to checking if any subject lacks test results
-                    found_subjects = {sd.name.replace('subject_', '') for sd in subject_dirs}
-                    missing = found_subjects - completed_subjects
-                    if missing:
-                        print(f"  Skipping {model_name} (incomplete: {sorted(missing)} missing test results)")
-                        continue
+                missing = found_subjects - completed_subjects
+                if missing:
+                    print(f"  Skipping {model_name} (incomplete: {len(missing)}/{len(found_subjects)} subjects missing test results: {sorted(missing)})")
+                    continue
+                print(f"  All {len(found_subjects)} subjects completed")
 
             self.model_names.append(model_name)
 

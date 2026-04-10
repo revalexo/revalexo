@@ -7,11 +7,15 @@ Configurations for the **vision-guided knowledge transfer** benchmark. Models ar
 | Config | Method |
 |--------|--------|
 | `deepconvlstm_acc_gyro.yaml` | Baseline (IMU-only, no transfer) |
-| `deepconvlstm_acc_gyro_contrastive_pretrained.yaml` | Contrastive pretraining |
+| `deepconvlstm_acc_gyro_contrastive_pretrained.yaml` | Contrastive pretraining (CP) |
 | `deepconvlstm_acc_gyro_kd_resnet50_dcl.yaml` | Knowledge distillation (vanilla KD) |
 | `deepconvlstm_acc_gyro_kd_fitnets.yaml` | Knowledge distillation (FitNets) |
 | `deepconvlstm_acc_gyro_kd_crd_membank.yaml` | Knowledge distillation (CRD with memory bank) |
 | `deepconvlstm_acc_gyro_kd_nkd.yaml` | Knowledge distillation (NKD) |
+
+## Results
+
+See [RESULTS.md](RESULTS.md) for benchmark results.
 
 ## Setup
 

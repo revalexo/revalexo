@@ -1,0 +1,54 @@
+# Cross-Population Generalization Results
+
+Cross-population generalization performance at &tau;=0.0 s and &tau;=0.5 s. Models are trained on healthy older adults (N=7) and tested on stroke survivors (N=6) with multimodal data. Results are reported as mean &pm; SD Macro F1 (%) across subjects.
+
+## Results at &tau;=0.0 s and &tau;=0.5 s
+
+| | Method | &tau;=0.0 s | | &tau;=0.5 s | | Logs |
+|---|---|---|---|---|---|---|
+| | | Overall | Trans. | Overall | Trans. | |
+| **IMU** | [DCL (acc)](deepconvlstm_acc.yaml) | 59.9 &pm; 10.3 | 34.7 &pm; 10.7 | 53.5 &pm; 9.7 | 33.5 &pm; 8.9 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/deepconvlstm_acc/20260409_003057_RevalExoDataset_raw_imu_DeepConvLSTM/) |
+| | [DCL (acc+gyro)](deepconvlstm_acc_gyro.yaml) | 65.6 &pm; 9.5 | 36.8 &pm; 11.8 | 59.3 &pm; 8.7 | 37.9 &pm; 9.9 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/deepconvlstm_acc_gyro/20260409_000107_RevalExoDataset_raw_imu_DeepConvLSTM/) |
+| | [DCL (acc+gyro, CP)](deepconvlstm_acc_gyro_contrastive_pretrained.yaml) | 70.0 &pm; 8.0 | 37.3 &pm; 11.9 | 60.5 &pm; 7.9 | 36.2 &pm; 9.5 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/deepconvlstm_acc_gyro_contrastive_pretrained/eval_20260410_091422_Subject05_to_Subject26/) |
+| **Img** | [MNV3-S](mobilenetv3_small.yaml) | 81.9 &pm; 2.5 | 54.3 &pm; 2.1 | 79.5 &pm; 3.1 | 50.5 &pm; 1.0 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/mobilenetv3_small/20260409_025113_RevalExoDataset_image_MobileNetV3Small_Image/) |
+| | [R18](resnet18.yaml) | 82.0 &pm; 2.5 | 52.6 &pm; 1.1 | 80.6 &pm; 2.8 | 51.2 &pm; 1.3 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/resnet18/20260409_020715_RevalExoDataset_image_ResNet18_Image/) |
+| | [R50](resnet50.yaml) | 81.8 &pm; 2.6 | 52.5 &pm; 2.2 | 80.1 &pm; 2.1 | 50.5 &pm; 1.5 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/resnet50/20260409_010209_RevalExoDataset_image_ResNet50_Image/) |
+| **Vid** | [X3D-XS](x3d_xs_adamW.yaml) | 89.1 &pm; 2.4 | 60.3 &pm; 5.3 | 86.3 &pm; 2.8 | 54.8 &pm; 4.7 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/x3d_xs_adamW/eval_20260410_101730_Subject05_to_Subject26/) |
+| | [MViT](mvit_adamW.yaml) | 82.4 &pm; 3.2 | 49.9 &pm; 2.0 | 80.7 &pm; 4.0 | 51.4 &pm; 3.6 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/mvit_adamW/eval_20260410_111131_Subject05_to_Subject26/) |
+| **IMU+Img** | [KIFNet-Style](kifnet_style_fusion.yaml) | 68.6 &pm; 7.3 | 38.3 &pm; 8.4 | 67.9 &pm; 7.9 | 42.6 &pm; 8.4 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/kifnet_style_fusion/20260409_041325_RevalExoDataset_raw_imu-image_KIFNetMLP-MobileOneS0_Image-FusionModel/) |
+| | [MNV3-DCL (C)](mobilenetv3_small_dcl_fusion_concat_ln.yaml) | 87.1 &pm; 1.9 | 56.5 &pm; 6.1 | 83.5 &pm; 1.2 | 52.3 &pm; 3.6 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/mobilenetv3_small_dcl_fusion_concat_ln/20260409_023920_RevalExoDataset_raw_imu-image_DeepConvLSTM-MobileNetV3Small_Image-FusionModel/) |
+| | [R18-DCL (C)](resnet18_dcl_fusion_concat_ln.yaml) | 87.1 &pm; 2.5 | 54.3 &pm; 7.6 | 83.6 &pm; 1.1 | 50.2 &pm; 5.3 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/resnet18_dcl_fusion_concat_ln/20260409_000107_RevalExoDataset_raw_imu-image_DeepConvLSTM-ResNet18_Image-FusionModel/) |
+| | [R50-DCL (C)](resnet50_dcl_fusion_concat_ln.yaml) | 88.6 &pm; 1.5 | 58.8 &pm; 4.7 | 85.4 &pm; 0.6 | 52.8 &pm; 3.4 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/resnet50_dcl_fusion_concat_ln/20260409_011840_RevalExoDataset_raw_imu-image_DeepConvLSTM-ResNet50_Image-FusionModel/) |
+| **IMU+Vid** | [SFTIK](sftik_fusion.yaml) | 76.1 &pm; 5.6 | 50.6 &pm; 3.8 | 74.7 &pm; 5.5 | 49.5 &pm; 3.2 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/sftik_fusion/eval_20260410_101832_Subject05_to_Subject26/) |
+| | [EVI-MAE](evi_mae_fusion.yaml) | 86.5 &pm; 2.8 | 55.4 &pm; 6.1 | 85.2 &pm; 2.3 | 53.8 &pm; 3.8 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/evi_mae_fusion/eval_20260410_114025_Subject05_to_Subject26/) |
+| | [X3D-XS-DCL (C)](x3d_xs_dcl_fusion_concat_ln.yaml) | - | - | - | - | |
+| | [MViT-DCL (C)](mvit_dcl_fusion_concat_ln.yaml) | - | - | - | - | |
+
+> DCL: DeepConvLSTM; MNV3: MobileNetV3; R18: ResNet-18; R50: ResNet-50; CP: Contrastive Pretrained; C: Feature concatenation. `-` indicates results not yet available.
+
+## From-Scratch Models
+
+| | Method | &tau;=0.0 s | | &tau;=0.5 s | | Logs |
+|---|---|---|---|---|---|---|
+| | | Overall | Trans. | Overall | Trans. | |
+| **Img** | [R18 (scratch)](resnet18_scratch.yaml) | 79.3 &pm; 3.1 | 53.4 &pm; 2.1 | 77.6 &pm; 3.3 | 48.9 &pm; 1.6 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/resnet18_scratch/20260409_020223_RevalExoDataset_image_ResNet18_Image/) |
+| **Vid** | [MViT (scratch)](mvit_scratch.yaml) | 76.1 &pm; 5.7 | 48.7 &pm; 6.8 | 74.4 &pm; 5.2 | 45.9 &pm; 4.0 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/mvit_scratch/20260409_144532_RevalExoDataset_video_MViT_Video/) |
+
+## Frozen / Linear Probe Models
+
+| | Method | &tau;=0.0 s | | &tau;=0.5 s | | Logs |
+|---|---|---|---|---|---|---|
+| | | Overall | Trans. | Overall | Trans. | |
+| **Img** | [R18 (LP)](frozen/resnet18_linear_probe.yaml) | 73.7 &pm; 3.3 | 49.2 &pm; 2.2 | 74.5 &pm; 3.4 | 47.4 &pm; 2.9 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/frozen/resnet18_linear_probe/20260409_022940_RevalExoDataset_image_ResNet18_Image/) |
+| | [DINOv3 (LP)](frozen/dinov3_linear_probe.yaml) | 76.6 &pm; 3.1 | 52.5 &pm; 3.0 | 77.4 &pm; 2.4 | 51.6 &pm; 1.6 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/frozen/dinov3_linear_probe/20260409_034030_RevalExoDataset_image_DINOv3_Image/) |
+| **Vid** | [MViT (LP)](frozen/mvit_linear_probe.yaml) | 75.4 &pm; 4.4 | 49.2 &pm; 3.9 | 76.0 &pm; 4.1 | 47.4 &pm; 2.6 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/frozen/mvit_linear_probe/20260409_041741_RevalExoDataset_video_MViT_Video/) |
+| **IMU+Img** | [R18-DCL (LP)](frozen/resnet18_dcl_fusion_concat_ln_linear_probe.yaml) | 79.8 &pm; 5.0 | 48.9 &pm; 11.7 | 76.6 &pm; 3.4 | 44.3 &pm; 8.9 | [&#128194;](https://huggingface.co/datasets/revalexo/train-logs/tree/main/train/revalexo_cross_population/frozen/resnet18_dcl_fusion_concat_ln_linear_probe/20260409_025628_RevalExoDataset_raw_imu-image_DeepConvLSTM-ResNet18_Image-FusionModel/) |
+
+> LP: Linear Probe (backbone frozen, only classification head trained).
+
+## Analysis
+
+Full analysis outputs (plots, per-class breakdowns, per-subject reports) are available in:
+```
+outputs/train/revalexo_cross_population/analysis_results/
+```

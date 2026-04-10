@@ -47,6 +47,9 @@ class TrainOnlyAnalyzer:
         self.per_subject_metrics = defaultdict(lambda: defaultdict(dict))
         self.subjects = set()
 
+        # Map model name -> actual directory path
+        self.model_dirs = {}
+
         # Model names and horizons
         self.model_names = []
         self.horizons = []
@@ -96,6 +99,7 @@ class TrainOnlyAnalyzer:
                     continue
 
             self.model_names.append(model_name)
+            self.model_dirs[model_name] = model_dir
 
             # Extract metrics from test horizon directories
             horizon_dirs = sorted([d for d in test_dir.iterdir()
@@ -867,14 +871,15 @@ class TrainOnlyAnalyzer:
         transition_per_class = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
         
         for model_name in self.model_names:
-            model_dir = self.base_dir / model_name
+            model_dir = self.model_dirs.get(model_name, self.base_dir / model_name)
             timestamp_dirs = [d for d in model_dir.iterdir() if d.is_dir()]
             if not timestamp_dirs:
                 continue
             latest_timestamp = max(timestamp_dirs, key=lambda x: x.name)
-            
+            test_dir = latest_timestamp / 'test'
+
             for horizon in self.horizons:
-                horizon_dir = latest_timestamp / f'horizon_{horizon}'
+                horizon_dir = test_dir / f'horizon_{horizon}'
                 if horizon_dir.exists():
                     csv_path = horizon_dir / 'best_model_metrics_transition.csv'
                     if csv_path.exists():
@@ -968,14 +973,15 @@ class TrainOnlyAnalyzer:
         transition_per_class = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
         
         for model_name in self.model_names:
-            model_dir = self.base_dir / model_name
+            model_dir = self.model_dirs.get(model_name, self.base_dir / model_name)
             timestamp_dirs = [d for d in model_dir.iterdir() if d.is_dir()]
             if not timestamp_dirs:
                 continue
             latest_timestamp = max(timestamp_dirs, key=lambda x: x.name)
-            
+            test_dir = latest_timestamp / 'test'
+
             for horizon in self.horizons:
-                horizon_dir = latest_timestamp / f'horizon_{horizon}'
+                horizon_dir = test_dir / f'horizon_{horizon}'
                 if horizon_dir.exists():
                     csv_path = horizon_dir / 'best_model_metrics_transition.csv'
                     if csv_path.exists():

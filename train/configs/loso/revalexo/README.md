@@ -11,7 +11,7 @@ Configurations for **leave-one-subject-out (LOSO) cross-validation** on the 13 s
 | `deepconvlstm_acc.yaml` | DeepConvLSTM (accelerometer only) |
 | `deepconvlstm_acc_gyro.yaml` | DeepConvLSTM (accelerometer + gyroscope) |
 
-### Video-Only
+### Image/Video Models (Fine-tuned)
 
 | Config | Model |
 |--------|-------|
@@ -21,6 +21,20 @@ Configurations for **leave-one-subject-out (LOSO) cross-validation** on the 13 s
 | `x3d_xs.yaml` | X3D-XS |
 | `x3d_m.yaml` | X3D-M |
 | `mvit.yaml` | MViT |
+
+### Image/Video Models (From Scratch)
+
+| Config | Model |
+|--------|-------|
+| `resnet18_scratch.yaml` | ResNet-18 (from scratch) |
+
+### Image/Video Models (Frozen / Linear Probe)
+
+| Config | Model |
+|--------|-------|
+| `frozen/resnet18_linear_probe.yaml` | ResNet-18 (linear probe) |
+| `frozen/dinov3_linear_probe.yaml` | DINOv3 (linear probe) |
+| `frozen/resnet18_dcl_fusion_concat_ln_linear_probe.yaml` | ResNet-18 + DeepConvLSTM (linear probe) |
 
 ### Multimodal Fusion (IMU + Video)
 
@@ -39,6 +53,10 @@ Configurations for **leave-one-subject-out (LOSO) cross-validation** on the 13 s
 | `kifnet_style_fusion.yaml` | [KIFNet](https://github.com/Anvilondre/kifnet)-Style fusion |
 | `sftik_sandwich_loso_lowerbody.yaml` | [SFTIK](https://github.com/RuoqiZhao116/SFTIK) sandwich fusion |
 | `evi_mae_fusion.yaml` | [EVI-MAE](https://github.com/mf-zhang/IMU-Video-MAE) fusion |
+
+## Results
+
+See [RESULTS.md](RESULTS.md) for benchmark results.
 
 ## Usage
 
