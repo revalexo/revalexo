@@ -235,10 +235,6 @@ Download the pretrained checkpoints from the link below and place them in the `p
 
 > [[Download Pretrained Models]](https://kuleuven-my.sharepoint.com/:f:/g/personal/diwas_lamsal_kuleuven_be/IgDAiB2SZR5RS7hXB8x3UZNqAaVs7xccU_jvEpNV42VMlcM?e=7SefJQ)
 
-### Training Logs
-
-Training logs for experiments are available for reference:
-
 ## Citation
 
 Coming soon.
