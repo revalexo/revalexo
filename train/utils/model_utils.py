@@ -355,13 +355,21 @@ def build_models(config: Dict[str, Any], device: torch.device, prediction_horizo
                         logging.warning(f"Pretrained checkpoint not found: {checkpoint_path}")
             
             else:
-                # Regular fusion models that combine separate encoders
-                # Prepare modality encoders dictionary
+                # FIX FOR MULTIMODAL EVAL
+                # Insertion order into this dict determines the
+                # concatenation order inside FusionModel.forward (which iterates
+                # self.modality_encoders). yaml.safe_dump alphabetizes keys when
+                # writing the saved per-run config.yaml, which would silently
+                # reorder modalities at re-load time. To keep loaded fusion
+                # weights aligned with what the model saw at training time we
+                # enforce a fixed order here to match thee trained order
+                CANON_ORDER = ["raw_imu", "image", "video"]
+                def _modality_sort_key(m):
+                    return (CANON_ORDER.index(m) if m in CANON_ORDER else len(CANON_ORDER), m)
                 modality_encoders = {}
-                
+
                 # Map modalities to their corresponding encoder models
-                for modality in config.get('modalities', {}):
-                    # The model name is expected to be "{modality}_model"
+                for modality in sorted(config.get('modalities', {}), key=_modality_sort_key):
                     model_name = f"{modality}_model"
                     if model_name in models:
                         modality_encoders[modality] = models[model_name]

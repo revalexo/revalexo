@@ -254,7 +254,25 @@ def load_model_checkpoint(
         state_dict = checkpoint
         checkpoint = {'model_state_dict': state_dict}
 
-    model.load_state_dict(state_dict)
+    # Use strict=False so legacy duplicate keys (e.g., MViT's
+    # _attention_pool_k/_attention_pool_v that older pytorchvideo
+    # versions stored alongside the public pool_k/pool_v) don't crash
+    # the load. We explicitly fail if any *missing* keys correspond to
+    # weights the current model needs - that would silently degrade
+    # accuracy. Necessary to run with version mismatches
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    if missing:
+        # Ignore BatchNorm num_batches_tracked which is benign
+        non_benign_missing = [k for k in missing if not k.endswith("num_batches_tracked")]
+        if non_benign_missing:
+            raise RuntimeError(
+                f"Checkpoint is missing {len(non_benign_missing)} model weight(s) "
+                f"that the current model expects (would be random-init). "
+                f"First few: {non_benign_missing[:5]}"
+            )
+    if unexpected:
+        print(f"  Note: ignored {len(unexpected)} unexpected key(s) in checkpoint "
+              f"(legacy / duplicate weights). First few: {unexpected[:3]}")
 
     print(f"Loaded checkpoint: {checkpoint_path}")
     if 'epoch' in checkpoint:

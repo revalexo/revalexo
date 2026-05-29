@@ -623,6 +623,22 @@ def main_worker(rank: int, world_size: int, args: argparse.Namespace):
             not isinstance(scheduler.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau)):
             scheduler.step()
     
+    # Reload best-val checkpoint (if available) so the final test eval reports
+    # numbers from the model the val-based monitor actually selected, not the
+    # final epoch's weights (which may have overfit).
+    best_ckpt_path = os.path.join(logging_config.get('log_dir', '.'), 'best_model.pt')
+    if os.path.exists(best_ckpt_path):
+        best_ckpt = torch.load(best_ckpt_path, map_location=device, weights_only=False)
+        state_dict = best_ckpt.get('model_state_dict', best_ckpt) if isinstance(best_ckpt, dict) else best_ckpt
+        model.load_state_dict(state_dict)
+        loaded_epoch = best_ckpt.get('epoch', '?') if isinstance(best_ckpt, dict) else '?'
+        logging.info(f"Loaded best_model.pt (epoch={loaded_epoch}) for test evaluation: {best_ckpt_path}")
+    else:
+        logging.warning(
+            f"best_model.pt not found at {best_ckpt_path}; "
+            f"test evaluation will use final-epoch weights."
+        )
+
     # Final evaluation on test set with per-subject metrics
     test_metrics = evaluate(
         model=model,
