@@ -100,8 +100,8 @@ models:
       pretrained: true
       freeze_backbone: true
       freeze_early_layers: true
-      mobileone_path: "/home/diwas/PhD/External/ml-mobileone"
-      mobileone_weights: "/home/diwas/PhD/External/ml-mobileone/weights/mobileone_s0_unfused.pth.tar"
+      mobileone_path: "/path/to/ml-mobileone" # Path to ml-mobileone repository (CHANGE THIS TO YOUR LOCAL PATH)
+      mobileone_weights: "/path/to/mobileone_s0_unfused.pth.tar" # Path to MobileOne S0 weights (CHANGE THIS TO YOUR LOCAL PATH)
 
   fusion_model:
     name: "FusionModel"
