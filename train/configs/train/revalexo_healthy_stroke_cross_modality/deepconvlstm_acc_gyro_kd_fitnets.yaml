@@ -52,6 +52,8 @@ modalities:
     use_frames: false
     use_end_frame: true
     train_transforms:
+      - name: "DivideBy255"
+        params: {}
       - name: "NormalizeImage"
         params:
           mean: [0.485, 0.456, 0.406]
@@ -68,6 +70,8 @@ modalities:
         params:
           p: 0.5
     eval_transforms:
+      - name: "DivideBy255"
+        params: {}
       - name: "NormalizeImage"
         params:
           mean: [0.485, 0.456, 0.406]
