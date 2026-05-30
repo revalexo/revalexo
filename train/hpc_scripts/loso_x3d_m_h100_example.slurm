@@ -14,7 +14,7 @@
 #SBATCH --mem-per-cpu=6000M
 
 # Initialize conda
-source /data/leuven/370/vsc37079/miniconda3/etc/profile.d/conda.sh
+source /path/to/conda.sh
 
 # Activate environment
 conda activate multimodal-env
