@@ -1,6 +1,6 @@
-# RevalExo: A Multimodal Dataset and Benchmark for Locomotion Mode Recognition Across Healthy and Clinical Populations
+# RevalExo: A Functional Daily-Activity Benchmark for Inertial and Visual Locomotion Mode Recognition in Older Adults and Clinical Cohorts
 
-This is the official codebase for the paper *"RevalExo: A Multimodal Dataset and Benchmark for Locomotion Mode Recognition Across Healthy and Clinical Populations"*.
+This is the official codebase for the paper *"RevalExo: A Functional Daily-Activity Benchmark for Inertial and Visual Locomotion Mode Recognition in Older Adults and Clinical Cohorts"*.
 
 [[Project Page]](https://revalexo.github.io/) | [[Dataset]](https://rdr.kuleuven.be/dataset.xhtml?persistentId=doi:10.48804/OWJOID) | [[Training Logs]](https://huggingface.co/datasets/revalexo/train-logs/tree/main)
 
@@ -233,7 +233,7 @@ pretrained/
 
 Download the pretrained checkpoints from the link below and place them in the `pretrained/` directory, preserving the folder structure above:
 
-> [[Download Pretrained Models]](https://kuleuven-my.sharepoint.com/:f:/g/personal/diwas_lamsal_kuleuven_be/IgDAiB2SZR5RS7hXB8x3UZNqAaVs7xccU_jvEpNV42VMlcM?e=7SefJQ)
+> [[Download Pretrained Models]](https://huggingface.co/wearablehar/pretrained)
 
 ## Citation
 

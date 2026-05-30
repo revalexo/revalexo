@@ -1,6 +1,6 @@
 # RevalExo
 
-Official codebase for *"RevalExo: A Multimodal Dataset and Benchmark for Locomotion Mode Recognition Across Healthy and Clinical Populations"*.
+Official codebase for *"RevalExo: A Functional Daily-Activity Benchmark for Inertial and Visual Locomotion Mode Recognition in Older Adults and Clinical Cohorts"*.
 
 [[Project Page]](https://revalexo.github.io/) | [[Dataset]](https://rdr.kuleuven.be/dataset.xhtml?persistentId=doi:10.48804/OWJOID)
 
