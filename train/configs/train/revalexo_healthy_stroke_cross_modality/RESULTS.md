@@ -1,6 +1,6 @@
 # Vision-Guided Knowledge Transfer Results (Healthy &rarr; Stroke)
 
-Vision-guided cross-modal knowledge transfer performance at &tau;=0.0 s and &tau;=0.5 s. Models are trained on healthy older adults (N=7) and tested on stroke survivors (N=10). Results are reported as 5-seed average Macro F1 (%) across subjects.
+Vision-guided cross-modal knowledge transfer performance at &tau;=0.0 s and &tau;=0.5 s. Models are trained on healthy older adults (N=7) and tested on stroke survivors (N=10). Results are reported as 5-seed average Macro F1 (%) across subjects. Training logs for all models are available [here](https://huggingface.co/datasets/wearablehar/train-logs/tree/main/train/revalexo_healthy_stroke_cross_modality).
 
 ## Results at &tau;=0.0 s and &tau;=0.5 s
 
