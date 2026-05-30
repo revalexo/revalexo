@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=loso_revalexo_x3d_m
-#SBATCH --clusters=wice
+#SBATCH --clusters=cluster_name
 #SBATCH --partition=gpu_h100
 #SBATCH --account=hpc_account_name
 #SBATCH --nodes=1
